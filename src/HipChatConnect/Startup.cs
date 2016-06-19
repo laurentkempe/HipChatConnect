@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 
 namespace HipChatConnect
 {
@@ -24,10 +23,7 @@ namespace HipChatConnect
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<AppSettings>(settings => settings.NGrokUrl = Configuration["NGROK_URL"]);
-
-            services.AddSingleton(serviceProvider => ConnectionMultiplexer.Connect("redis:32768").GetDatabase());
-            //services.AddSingleton(serviceProvider => ConnectionMultiplexer.Connect("docker.local:32768").GetDatabase());
+            services.Configure<AppSettings>(settings => settings.BaseUrl = Configuration["BASE_URL"]);
 
             // Add framework services.
             services.AddCors();

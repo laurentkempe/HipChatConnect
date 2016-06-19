@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
@@ -12,7 +13,6 @@ using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Nubot.Plugins.Samples.HipChatConnect.Models;
-using StackExchange.Redis;
 
 namespace HipChatConnect.Controllers
 {
@@ -20,19 +20,17 @@ namespace HipChatConnect.Controllers
     public class HipChatConnectController : Controller
     {
         private readonly IOptions<AppSettings> _settings;
-        private readonly IDatabase _database;
+        private static readonly ConcurrentDictionary<string, object> Cache = new ConcurrentDictionary<string, object>();
 
-        public HipChatConnectController(IOptions<AppSettings> settings, IDatabase database)
+        public HipChatConnectController(IOptions<AppSettings> settings)
         {
             _settings = settings;
-            _database = database;
         }
 
         [HttpGet("atlassian-connect.json")]
         public async Task<string> Get()
         {
-            var baseUri = "https://f1eeae2d.ngrok.io";
-            //var baseUri = _settings.Value?.NGrokUrl ?? "http://localhost:52060/";
+            var baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
 
             return await Task.FromResult(GetCapabilitiesDescriptor(baseUri));
         }
@@ -40,15 +38,13 @@ namespace HipChatConnect.Controllers
         [HttpPost("installable")]
         public async Task<HttpStatusCode> Installable([FromBody]InstallationData installationData)
         {
-            await _database.StringSetAsync(installationData.oauthId, JsonConvert.SerializeObject(installationData));
+            Cache.TryAdd(installationData.oauthId, installationData);
 
             var capabilitiesRoot = await GetCapabilitiesRoot(installationData);
 
             var accessToken = await GetAccessToken(installationData, capabilitiesRoot);
 
-            await _database.StringSetAsync(installationData.oauthId, JsonConvert.SerializeObject(installationData));
-
-            return await _database.StringSetAsync("accessToken", JsonConvert.SerializeObject(accessToken)) ? HttpStatusCode.OK : HttpStatusCode.NotFound;
+            return Cache.TryAdd("accessToken", accessToken) ? HttpStatusCode.OK : HttpStatusCode.NotFound;
         }
 
         [HttpGet("uninstalled")]
@@ -62,7 +58,8 @@ namespace HipChatConnect.Controllers
 
             var jObject = await httpResponse.Content.ReadAsAsync<JObject>();
 
-            await _database.KeyDeleteAsync((string) jObject["oauthId"]);
+            object anobject;
+            Cache.TryRemove((string)jObject["oauthId"], out anobject);
 
             return await Task.FromResult(Redirect(redirectUrl));
         }
@@ -227,14 +224,13 @@ namespace HipChatConnect.Controllers
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
             var readToken = jwtSecurityTokenHandler.ReadToken(jwt);
 
-            var redisValue = _database.StringGet(readToken.Issuer);
-
-            if (!redisValue.HasValue)
+            object installationDataObject;
+            if (!Cache.TryGetValue(readToken.Issuer, out installationDataObject))
             {
                 return false;
             }
 
-            var installationData = JsonConvert.DeserializeObject<InstallationData>(redisValue);
+            var installationData = (InstallationData)installationDataObject;
 
             var validationParameters = new TokenValidationParameters
             {

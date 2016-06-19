@@ -2,6 +2,6 @@ namespace HipChatConnect
 {
     public class AppSettings
     {
-        public string NGrokUrl { get; set; }
+        public string BaseUrl { get; set; }
     }
 }
