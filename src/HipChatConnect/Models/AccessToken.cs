@@ -1,4 +1,6 @@
-﻿namespace Nubot.Plugins.Samples.HipChatConnect.Models
+﻿using System;
+
+namespace Nubot.Plugins.Samples.HipChatConnect.Models
 {
     public class AccessToken
     {
@@ -8,5 +10,12 @@
         public string group_name { get; set; }
         public string scope { get; set; }
         public string token_type { get; set; }
+    }
+
+    public class ExpiringAccessToken
+    {
+        public AccessToken Token { get; set; }
+
+        public DateTime ExpirationTimeStamp { get; set; }
     }
 }

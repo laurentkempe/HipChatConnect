@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Nubot.Plugins.Samples.HipChatConnect.Models;
 
 namespace HipChatConnect.Controllers
@@ -20,7 +19,8 @@ namespace HipChatConnect.Controllers
     public class HipChatConnectController : Controller
     {
         private readonly IOptions<AppSettings> _settings;
-        private static readonly ConcurrentDictionary<string, object> Cache = new ConcurrentDictionary<string, object>();
+        private static readonly ConcurrentDictionary<string, InstallationData> InstallationStore = new ConcurrentDictionary<string, InstallationData>();
+        private static readonly ConcurrentDictionary<string, ExpiringAccessToken> AccessTokenStore = new ConcurrentDictionary<string, ExpiringAccessToken>();
 
         public HipChatConnectController(IOptions<AppSettings> settings)
         {
@@ -28,23 +28,24 @@ namespace HipChatConnect.Controllers
         }
 
         [HttpGet("atlassian-connect.json")]
-        public async Task<string> Get()
+        public async Task<string> GetCapabilityDescriptor()
         {
             var baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
 
             return await Task.FromResult(GetCapabilitiesDescriptor(baseUri));
         }
 
-        [HttpPost("installable")]
-        public async Task<HttpStatusCode> Installable([FromBody]InstallationData installationData)
+        [HttpPost("installed")]
+        public async Task<HttpStatusCode> Installable([FromBody]InstallationData installation)
         {
-            Cache.TryAdd(installationData.oauthId, installationData);
+            InstallationStore.TryAdd(installation.oauthId, installation);
 
-            var capabilitiesRoot = await GetCapabilitiesRoot(installationData);
+            var capabilitiesRoot = await RetrieveCapabilitiesDocument(installation.capabilitiesUrl);
 
-            var accessToken = await GetAccessToken(installationData, capabilitiesRoot);
+            installation.tokenUrl = capabilitiesRoot.capabilities.oauth2Provider.tokenUrl;
+            installation.apiUrl = capabilitiesRoot.capabilities.hipchatApiProvider.url;
 
-            return Cache.TryAdd("accessToken", accessToken) ? HttpStatusCode.OK : HttpStatusCode.NotFound;
+            return HttpStatusCode.OK;
         }
 
         [HttpGet("uninstalled")]
@@ -56,10 +57,11 @@ namespace HipChatConnect.Controllers
             var httpResponse = await client.GetAsync(installableUrl);
             httpResponse.EnsureSuccessStatusCode();
 
-            var jObject = await httpResponse.Content.ReadAsAsync<JObject>();
+            var installationData = await httpResponse.Content.ReadAsAsync<InstallationData>();
 
-            object anobject;
-            Cache.TryRemove((string)jObject["oauthId"], out anobject);
+            InstallationStore.TryRemove(installationData.oauthId, out installationData);
+            ExpiringAccessToken expiringAccessToken;
+            AccessTokenStore.TryRemove(installationData.oauthId, out expiringAccessToken);
 
             return await Task.FromResult(Redirect(redirectUrl));
         }
@@ -67,18 +69,44 @@ namespace HipChatConnect.Controllers
         [HttpGet("glance")]
         public string GetGlance([FromQuery(Name = "signed_request")]string signedRequest)
         {
-            if (ValidateToken(signedRequest))
+            if (ValidateJWT(signedRequest))
             {
                 return BuildInitialGlance();
             }
 
-            return "";
+            return ""; //HttpStatusCode.Forbidden;
         }
+
+        //var accessToken = await GetAccessToken(installation, capabilitiesRoot.capabilities.oauth2Provider.tokenUrl);
+
+        //    [HttpGet("glance/update")]
+        //    public string UpdateGlance([FromQuery(Name = "text")]string status)
+        //    {
+        //        foreach (var cacheValue in InstallationStore.Values)
+        //        {
+        //            var client = new HttpClient();
+
+        //            new Uri()
+
+        //            var tokenResponse =
+        //await client.PostAsync(new Uri(capabilitiesRoot.capabilities.oauth2Provider.tokenUrl), dataContent);
+        //            return await tokenResponse.Content.ReadAsAsync<AccessToken>();
+
+
+        //        }
+
+        //        if (!InstallationStore.TryGetValue(, out installation))
+        //        {
+        //            return "";
+        //        }
+
+        //        return BuildInitialGlance(status);
+        //    }
 
         [HttpGet("sidebar")]
         public IActionResult Sidebar([FromQuery(Name = "signed_request")]string signedRequest)
         {
-            if (ValidateToken(signedRequest))
+            if (ValidateJWT(signedRequest))
             {
                 return Redirect("/nubot/index.html");
             }
@@ -91,8 +119,8 @@ namespace HipChatConnect.Controllers
         //{
         //    var buildInitialGlance = BuildInitialGlance(updateText);
 
-        //    var installationData = (InstallationData)Cache.Values.First();
-        //    installationData.
+        //    var installation = (InstallationData)InstallationStore.Values.First();
+        //    installation.
         //}
 
         /*
@@ -146,7 +174,7 @@ namespace HipChatConnect.Controllers
                     },
                     installable = new
                     {
-                        callbackUrl = $"{baseUri}/hipchat/installable",
+                        callbackUrl = $"{baseUri}/hipchat/installed",
                         uninstalledUrl = $"{baseUri}/hipchat/uninstalled"
                     },
                     glance = new[]
@@ -191,17 +219,34 @@ namespace HipChatConnect.Controllers
             return JsonConvert.SerializeObject(capabilitiesDescriptor);
         }
 
-        private async Task<CapabilitiesRoot> GetCapabilitiesRoot(InstallationData installationData)
+        private async Task<CapabilitiesRoot> RetrieveCapabilitiesDocument(string capabilitiesUrl)
         {
             var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync(new Uri(installationData.capabilitiesUrl));
+            var response = await httpClient.GetAsync(new Uri(capabilitiesUrl));
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsAsync<CapabilitiesRoot>();
         }
 
-        private async Task<AccessToken> GetAccessToken(InstallationData installationData, CapabilitiesRoot capabilitiesRoot)
+        private async Task<ExpiringAccessToken> GetAccessToken(string oauthId)
         {
+            ExpiringAccessToken expiringAccessToken;
+            if (!AccessTokenStore.TryGetValue(oauthId, out expiringAccessToken) || IsExpired(expiringAccessToken))
+            {
+                return await RefreshAccessToken(oauthId);
+            }
+
+            return await Task.FromResult(expiringAccessToken);
+        }
+
+        private static async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
+        {
+            InstallationData installation;
+            if (!InstallationStore.TryGetValue(oauthId, out installation))
+            {
+                return null;
+            }
+
             var client = new HttpClient();
 
             var dataContent = new FormUrlEncodedContent(new[]
@@ -210,27 +255,38 @@ namespace HipChatConnect.Controllers
                 new KeyValuePair<string, string>("scope", "send_notification")
             });
 
-            var credentials = Encoding.ASCII.GetBytes($"{installationData.oauthId}:{installationData.oauthSecret}");
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
-                Convert.ToBase64String(credentials));
+            var credentials = Encoding.ASCII.GetBytes($"{installation.oauthId}:{installation.oauthSecret}");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(credentials));
 
-            var tokenResponse =
-                await client.PostAsync(new Uri(capabilitiesRoot.capabilities.oauth2Provider.tokenUrl), dataContent);
-            return await tokenResponse.Content.ReadAsAsync<AccessToken>();
+            var tokenResponse = await client.PostAsync(new Uri(installation.tokenUrl), dataContent);
+            var accessToken = await tokenResponse.Content.ReadAsAsync<AccessToken>();
+
+            var expiringAccessToken = new ExpiringAccessToken
+            {
+                Token = accessToken,
+                ExpirationTimeStamp = DateTime.Now + TimeSpan.FromTicks((accessToken.expires_in - 60)*1000)
+            };
+
+            AccessTokenStore.AddOrUpdate(oauthId, expiringAccessToken, (s, token) => token);
+
+            return expiringAccessToken;
         }
 
-        private bool ValidateToken(string jwt)
+        private bool IsExpired(ExpiringAccessToken accessToken)
+        {
+            return accessToken.ExpirationTimeStamp < DateTime.Now;
+        }
+
+        private bool ValidateJWT(string jwt)
         {
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
             var readToken = jwtSecurityTokenHandler.ReadToken(jwt);
 
-            object installationDataObject;
-            if (!Cache.TryGetValue(readToken.Issuer, out installationDataObject))
+            InstallationData installationData;
+            if (!InstallationStore.TryGetValue(readToken.Issuer, out installationData))
             {
                 return false;
             }
-
-            var installationData = (InstallationData)installationDataObject;
 
             var validationParameters = new TokenValidationParameters
             {
