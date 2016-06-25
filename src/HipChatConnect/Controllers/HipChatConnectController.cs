@@ -146,6 +146,48 @@ namespace HipChatConnect.Controllers
             }
         }
 
+        [HttpGet("sendCardMessage")]
+        public async Task SendCardMessage([FromQuery(Name = "m")]string msg, [FromQuery(Name = "d")] string description)
+        {
+            var installationData = InstallationStore.Values.FirstOrDefault();
+            if (installationData == null) return;
+
+            using (var client = new HttpClient())
+            {
+                var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var messageData = new
+                {
+                    color = "gray",
+                    message = msg,
+                    message_format = "text",
+                    card = new
+                    {
+                        style = "application",
+                        id = "some_id",
+                        url = "http://laurentkempe.com",
+                        title = "Such awesome. Very API. Wow!",
+                        description = description,
+                        thumbnail = new
+                        {
+                            url = "https://pbs.twimg.com/profile_images/582836487776944129/cslDTKEq.jpg"
+                        }
+                    }
+                };
+
+                var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
+                stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
+                var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+                httpResponseMessage.EnsureSuccessStatusCode();
+            }
+        }
+
         [HttpGet("sidebar")]
         public IActionResult Sidebar([FromQuery(Name = "signed_request")]string signedRequest)
         {
