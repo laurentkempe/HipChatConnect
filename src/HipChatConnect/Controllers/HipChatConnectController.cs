@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Nubot.Plugins.Samples.HipChatConnect.Models;
+using System.Linq;
 
 namespace HipChatConnect.Controllers
 {
@@ -112,6 +113,36 @@ namespace HipChatConnect.Controllers
                     var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
                     httpResponseMessage.EnsureSuccessStatusCode();
                 }
+            }
+        }
+
+        [HttpGet("sendMessage")]
+        public async Task SendMessage([FromQuery(Name = "m")] string msg)
+        {
+            var installationData = InstallationStore.Values.FirstOrDefault();
+            if (installationData == null) return;
+
+            using (var client = new HttpClient())
+            {
+                var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var messageData = new
+                {
+                    color = "gray",
+                    message = msg,
+                    message_format = "html"
+                };
+
+                var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
+                stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
+                var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+                httpResponseMessage.EnsureSuccessStatusCode();
             }
         }
 
