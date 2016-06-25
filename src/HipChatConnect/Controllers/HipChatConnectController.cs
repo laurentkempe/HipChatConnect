@@ -8,6 +8,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -21,18 +22,20 @@ namespace HipChatConnect.Controllers
         private readonly IOptions<AppSettings> _settings;
         private static readonly ConcurrentDictionary<string, InstallationData> InstallationStore = new ConcurrentDictionary<string, InstallationData>();
         private static readonly ConcurrentDictionary<string, ExpiringAccessToken> AccessTokenStore = new ConcurrentDictionary<string, ExpiringAccessToken>();
+        private readonly string _baseUri;
 
         public HipChatConnectController(IOptions<AppSettings> settings)
         {
             _settings = settings;
+
+            _baseUri = "https://387c0fe3.ngrok.io";
+            //_baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
         }
 
         [HttpGet("atlassian-connect.json")]
         public async Task<string> GetCapabilityDescriptor()
         {
-            var baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
-
-            return await Task.FromResult(GetCapabilitiesDescriptor(baseUri));
+            return await Task.FromResult(GetCapabilitiesDescriptor(_baseUri));
         }
 
         [HttpPost("installed")]
@@ -71,37 +74,46 @@ namespace HipChatConnect.Controllers
         {
             if (ValidateJWT(signedRequest))
             {
-                return BuildInitialGlance();
+                return BuildGlance();
             }
 
             return ""; //HttpStatusCode.Forbidden;
         }
 
-        //var accessToken = await GetAccessToken(installation, capabilitiesRoot.capabilities.oauth2Provider.tokenUrl);
+        [HttpGet("updateGlance")]
+        public async Task UpdateGlance([FromQuery(Name = "u")]string updateText)
+        {
+            foreach (var installationData in InstallationStore.Values)
+            {
+                var glanceData = new
+                {
+                    glance = new[]
+                    {
+                        new
+                        {
+                            key = "nubot.glance", // see installation descriptor
+                            content = BuildGlanceString(updateText)
+                        }
+                    }
+                };
 
-        //    [HttpGet("glance/update")]
-        //    public string UpdateGlance([FromQuery(Name = "text")]string status)
-        //    {
-        //        foreach (var cacheValue in InstallationStore.Values)
-        //        {
-        //            var client = new HttpClient();
+                using (var client = new HttpClient())
+                {
+                    var accessToken = await GetAccessTokenAsync(installationData.oauthId);
 
-        //            new Uri()
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        //            var tokenResponse =
-        //await client.PostAsync(new Uri(capabilitiesRoot.capabilities.oauth2Provider.tokenUrl), dataContent);
-        //            return await tokenResponse.Content.ReadAsAsync<AccessToken>();
+                    var stringContent = new StringContent(JsonConvert.SerializeObject(glanceData));
+                    stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-
-        //        }
-
-        //        if (!InstallationStore.TryGetValue(, out installation))
-        //        {
-        //            return "";
-        //        }
-
-        //        return BuildInitialGlance(status);
-        //    }
+                    var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}addon/ui/room/{installationData.roomId}");
+                    var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+                    httpResponseMessage.EnsureSuccessStatusCode();
+                }
+            }
+        }
 
         [HttpGet("sidebar")]
         public IActionResult Sidebar([FromQuery(Name = "signed_request")]string signedRequest)
@@ -114,37 +126,6 @@ namespace HipChatConnect.Controllers
             return BadRequest();
         }
 
-        //[HttpGet("updateGlance")]
-        //public string UpdateGlance([FromQuery(Name = "u")]string updateText)
-        //{
-        //    var buildInitialGlance = BuildInitialGlance(updateText);
-
-        //    var installation = (InstallationData)InstallationStore.Values.First();
-        //    installation.
-        //}
-
-        /*
-        function updateGlanceData(oauthId, roomId, glanceData) {
-            var installation = installationStore[oauthId];
-            var roomGlanceUpdateUrl = installation.apiUrl + 'addon/ui/room/' + roomId;
-
-            getAccessToken(oauthId, function (token) {
-                request.post(roomGlanceUpdateUrl, {
-                    auth: {
-                        bearer: token['access_token']
-                    },
-                    json: {
-                        glance: [{
-                            key: "sample-glance",
-                            content: glanceData
-                        }]
-                    }
-                }, function (err, response, body) {
-                    logger.info(response);
-                    logger.info(err || response.statusCode, roomGlanceUpdateUrl)
-                });
-            });
-        }*/
         private static string GetCapabilitiesDescriptor(string baseUri)
         {
             var capabilitiesDescriptor = new
@@ -228,15 +209,16 @@ namespace HipChatConnect.Controllers
             return await response.Content.ReadAsAsync<CapabilitiesRoot>();
         }
 
-        private async Task<ExpiringAccessToken> GetAccessToken(string oauthId)
+        private async Task<AccessToken> GetAccessTokenAsync(string oauthId)
         {
             ExpiringAccessToken expiringAccessToken;
             if (!AccessTokenStore.TryGetValue(oauthId, out expiringAccessToken) || IsExpired(expiringAccessToken))
             {
-                return await RefreshAccessToken(oauthId);
+                var accessToken = await RefreshAccessToken(oauthId);
+                return accessToken.Token;
             }
 
-            return await Task.FromResult(expiringAccessToken);
+            return await Task.FromResult(expiringAccessToken.Token);
         }
 
         private static async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
@@ -309,7 +291,14 @@ namespace HipChatConnect.Controllers
             }
         }
 
-        private static string BuildInitialGlance(string status = "GOOD")
+        private static string BuildGlance(string status = "GOOD")
+        {
+            var response = BuildGlanceString(status);
+
+            return JsonConvert.SerializeObject(response);
+        }
+
+        private static object BuildGlanceString(string status = "GOOD")
         {
             var response = new
             {
@@ -329,11 +318,11 @@ namespace HipChatConnect.Controllers
                 },
                 metadata = new
                 {
-                    customData = new { customAttr = "customValue" }
+                    customData = new {customAttr = "customValue"}
                 }
             };
 
-            return JsonConvert.SerializeObject(response);
+            return response;
         }
     }
 }
