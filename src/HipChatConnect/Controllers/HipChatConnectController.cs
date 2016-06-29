@@ -29,8 +29,7 @@ namespace HipChatConnect.Controllers
         {
             _settings = settings;
 
-            _baseUri = "https://387c0fe3.ngrok.io";
-            //_baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
+            _baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
         }
 
         [HttpGet("atlassian-connect.json")]

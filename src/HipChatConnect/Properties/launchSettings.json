@@ -12,6 +12,7 @@
       "commandName": "IISExpress",
       "launchBrowser": true,
       "environmentVariables": {
+        "BASE_URL": "https://aae7f482.ngrok.io",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
