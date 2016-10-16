@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
@@ -7,29 +6,27 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using HipChatConnect.Core.Cache;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Nubot.Plugins.Samples.HipChatConnect.Models;
-using System.Linq;
+using HipChatConnect.Models;
 
 namespace HipChatConnect.Controllers
 {
     [Route("/hipchat")]
     public class HipChatConnectController : Controller
     {
-        private readonly IOptions<AppSettings> _settings;
-        private static readonly ConcurrentDictionary<string, InstallationData> InstallationStore = new ConcurrentDictionary<string, InstallationData>();
-        private static readonly ConcurrentDictionary<string, ExpiringAccessToken> AccessTokenStore = new ConcurrentDictionary<string, ExpiringAccessToken>();
+        private readonly ICache _cache;
         private readonly string _baseUri;
 
-        public HipChatConnectController(IOptions<AppSettings> settings)
+        public HipChatConnectController(IOptions<AppSettings> settings, ICache cache)
         {
-            _settings = settings;
+            _cache = cache;
 
-            _baseUri = _settings.Value?.BaseUrl ?? "http://localhost:52060/";
+            _baseUri = settings.Value?.BaseUrl ?? "http://localhost:52060/";
         }
 
         [HttpGet("atlassian-connect.json")]
@@ -41,12 +38,12 @@ namespace HipChatConnect.Controllers
         [HttpPost("installed")]
         public async Task<HttpStatusCode> Installable([FromBody]InstallationData installation)
         {
-            InstallationStore.TryAdd(installation.oauthId, installation);
-
-            var capabilitiesRoot = await RetrieveCapabilitiesDocument(installation.capabilitiesUrl);
+            var capabilitiesRoot = await RetrieveCapabilitiesDocumentAsync(installation.capabilitiesUrl);
 
             installation.tokenUrl = capabilitiesRoot.capabilities.oauth2Provider.tokenUrl;
             installation.apiUrl = capabilitiesRoot.capabilities.hipchatApiProvider.url;
+
+            await _cache.SetAsync(installation.oauthId, new AuthenticationData { InstallationData = installation });
 
             return HttpStatusCode.OK;
         }
@@ -62,17 +59,15 @@ namespace HipChatConnect.Controllers
 
             var installationData = await httpResponse.Content.ReadAsAsync<InstallationData>();
 
-            InstallationStore.TryRemove(installationData.oauthId, out installationData);
-            ExpiringAccessToken expiringAccessToken;
-            AccessTokenStore.TryRemove(installationData.oauthId, out expiringAccessToken);
+            await _cache.RemoveAsync(installationData.oauthId);
 
             return await Task.FromResult(Redirect(redirectUrl));
         }
 
         [HttpGet("glance")]
-        public string GetGlance([FromQuery(Name = "signed_request")]string signedRequest)
+        public async Task<string> GetGlance([FromQuery(Name = "signed_request")]string signedRequest)
         {
-            if (ValidateJWT(signedRequest))
+            if (await ValidateJWT(signedRequest))
             {
                 return BuildGlance();
             }
@@ -80,47 +75,173 @@ namespace HipChatConnect.Controllers
             return ""; //HttpStatusCode.Forbidden;
         }
 
-        [HttpGet("updateGlance")]
-        public async Task UpdateGlance([FromQuery(Name = "u")]string updateText)
+        //[HttpGet("updateGlance")]
+        //public async Task UpdateGlance([FromQuery(Name = "u")]string updateText)
+        //{
+        //    foreach (var installationData in InstallationStore.Values)
+        //    {
+        //        var glanceData = new
+        //        {
+        //            glance = new[]
+        //            {
+        //                new
+        //                {
+        //                    key = "nubot.glance", // see installation descriptor
+        //                    content = BuildGlanceString(updateText)
+        //                }
+        //            }
+        //        };
+
+        //        using (var client = new HttpClient())
+        //        {
+        //            var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+
+        //            client.DefaultRequestHeaders.Accept.Clear();
+        //            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+        //            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        //            var stringContent = new StringContent(JsonConvert.SerializeObject(glanceData));
+        //            stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        //            var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}addon/ui/room/{installationData.roomId}");
+        //            var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+        //            httpResponseMessage.EnsureSuccessStatusCode();
+        //        }
+        //    }
+        //}
+
+        static int openCounter = 0;
+
+        public async Task UpdateGlance(InstallationData installationData)
         {
-            foreach (var installationData in InstallationStore.Values)
+            openCounter++;
+
+            var glanceData = new
             {
-                var glanceData = new
+                glance = new[]
                 {
-                    glance = new[]
-                    {
                         new
                         {
                             key = "nubot.glance", // see installation descriptor
-                            content = BuildGlanceString(updateText)
+                            content = BuildGlanceString(openCounter.ToString())
                         }
                     }
-                };
+            };
 
-                using (var client = new HttpClient())
-                {
-                    var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+            using (var client = new HttpClient())
+            {
+                var accessToken = await GetAccessTokenAsync(installationData.oauthId);
 
-                    client.DefaultRequestHeaders.Accept.Clear();
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
-                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                    var stringContent = new StringContent(JsonConvert.SerializeObject(glanceData));
-                    stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                var stringContent = new StringContent(JsonConvert.SerializeObject(glanceData));
+                stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-                    var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}addon/ui/room/{installationData.roomId}");
-                    var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
-                    httpResponseMessage.EnsureSuccessStatusCode();
-                }
+                var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}addon/ui/room/{installationData.roomId}");
+                var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+                httpResponseMessage.EnsureSuccessStatusCode();
             }
         }
 
-        [HttpGet("sendMessage")]
-        public async Task SendMessage([FromQuery(Name = "m")] string msg)
-        {
-            var installationData = InstallationStore.Values.FirstOrDefault();
-            if (installationData == null) return;
+        //[HttpGet("sendMessage")]
+        //public async Task SendMessage([FromQuery(Name = "m")] string msg)
+        //{
+        //    var installationData = InstallationStore.Values.FirstOrDefault();
+        //    if (installationData == null) return;
 
+        //    using (var client = new HttpClient())
+        //    {
+        //        var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+
+        //        client.DefaultRequestHeaders.Accept.Clear();
+        //        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+        //        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        //        var messageData = new
+        //        {
+        //            color = "gray",
+        //            message = msg,
+        //            message_format = "html"
+        //        };
+
+        //        var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
+        //        stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        //        var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
+        //        var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+        //        httpResponseMessage.EnsureSuccessStatusCode();
+        //    }
+        //}
+
+        //[HttpGet("sendCardMessage")]
+        //public async Task SendCardMessage([FromQuery(Name = "m")]string msg, [FromQuery(Name = "d")] string description)
+        //{
+        //    var installationData = InstallationStore.Values.FirstOrDefault();
+        //    if (installationData == null) return;
+
+        //    using (var client = new HttpClient())
+        //    {
+        //        var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+
+        //        client.DefaultRequestHeaders.Accept.Clear();
+        //        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+        //        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        //        var messageData = new
+        //        {
+        //            color = "gray",
+        //            message = msg,
+        //            message_format = "text",
+        //            card = new
+        //            {
+        //                style = "application",
+        //                id = "some_id",
+        //                url = "http://laurentkempe.com",
+        //                title = "Such awesome. Very API. Wow!",
+        //                description = description,
+        //                thumbnail = new
+        //                {
+        //                    url = "https://pbs.twimg.com/profile_images/582836487776944129/cslDTKEq.jpg"
+        //                }
+        //            }
+        //        };
+
+        //        var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
+        //        stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        //        var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
+        //        var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
+        //        httpResponseMessage.EnsureSuccessStatusCode();
+        //    }
+        //}
+
+        [HttpGet("sidebar")]
+        public async Task<IActionResult> Sidebar([FromQuery(Name = "signed_request")]string signedRequest)
+        {
+            if (await ValidateJWT(signedRequest))
+            {
+                var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+                var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
+
+                var authenticationData = await GetAuthenticationDataFromCacheAsync(readToken.Issuer);
+
+                await UpdateGlance(authenticationData.InstallationData);
+
+                await SendMessage($"You opened it {openCounter} time(s)", authenticationData.InstallationData);
+
+                await SendCardMessage($"You opened it {openCounter} time(s)", $"AWESOME {openCounter} time!",
+                        authenticationData.InstallationData);
+
+                return Redirect("/nubot/index.html");
+            }
+
+            return BadRequest();
+        }
+
+        public async Task SendMessage(string msg, InstallationData installationData)
+        {
             using (var client = new HttpClient())
             {
                 var accessToken = await GetAccessTokenAsync(installationData.oauthId);
@@ -145,12 +266,8 @@ namespace HipChatConnect.Controllers
             }
         }
 
-        [HttpGet("sendCardMessage")]
-        public async Task SendCardMessage([FromQuery(Name = "m")]string msg, [FromQuery(Name = "d")] string description)
+        public async Task SendCardMessage(string msg, string description, InstallationData installationData)
         {
-            var installationData = InstallationStore.Values.FirstOrDefault();
-            if (installationData == null) return;
-
             using (var client = new HttpClient())
             {
                 var accessToken = await GetAccessTokenAsync(installationData.oauthId);
@@ -187,24 +304,13 @@ namespace HipChatConnect.Controllers
             }
         }
 
-        [HttpGet("sidebar")]
-        public IActionResult Sidebar([FromQuery(Name = "signed_request")]string signedRequest)
-        {
-            if (ValidateJWT(signedRequest))
-            {
-                return Redirect("/nubot/index.html");
-            }
-
-            return BadRequest();
-        }
-
         private static string GetCapabilitiesDescriptor(string baseUri)
         {
             var capabilitiesDescriptor = new
             {
                 name = "Nubot",
                 description = "An add-on to talk to Nubot.",
-                key = "nubot-addon",
+                key = "nubot",
                 links = new
                 {
                     self = $"{baseUri}/hipchat/atlassian-connect.json",
@@ -272,7 +378,7 @@ namespace HipChatConnect.Controllers
             return JsonConvert.SerializeObject(capabilitiesDescriptor);
         }
 
-        private async Task<CapabilitiesRoot> RetrieveCapabilitiesDocument(string capabilitiesUrl)
+        private async Task<CapabilitiesRoot> RetrieveCapabilitiesDocumentAsync(string capabilitiesUrl)
         {
             var httpClient = new HttpClient();
             var response = await httpClient.GetAsync(new Uri(capabilitiesUrl));
@@ -283,23 +389,20 @@ namespace HipChatConnect.Controllers
 
         private async Task<AccessToken> GetAccessTokenAsync(string oauthId)
         {
-            ExpiringAccessToken expiringAccessToken;
-            if (!AccessTokenStore.TryGetValue(oauthId, out expiringAccessToken) || IsExpired(expiringAccessToken))
+            var authenticationData = await _cache.GetAsync<AuthenticationData>(oauthId);
+
+            if (IsExpired(authenticationData.Token))
             {
                 var accessToken = await RefreshAccessToken(oauthId);
                 return accessToken.Token;
             }
 
-            return await Task.FromResult(expiringAccessToken.Token);
+            return await Task.FromResult(authenticationData.Token.Token);
         }
 
-        private static async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
+        private async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
         {
-            InstallationData installation;
-            if (!InstallationStore.TryGetValue(oauthId, out installation))
-            {
-                return null;
-            }
+            var authenticationData = await GetAuthenticationDataFromCacheAsync(oauthId);
 
             var client = new HttpClient();
 
@@ -309,38 +412,41 @@ namespace HipChatConnect.Controllers
                 new KeyValuePair<string, string>("scope", "send_notification")
             });
 
-            var credentials = Encoding.ASCII.GetBytes($"{installation.oauthId}:{installation.oauthSecret}");
+            var credentials = Encoding.ASCII.GetBytes($"{authenticationData.InstallationData.oauthId}:{authenticationData.InstallationData.oauthSecret}");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(credentials));
 
-            var tokenResponse = await client.PostAsync(new Uri(installation.tokenUrl), dataContent);
+            var tokenResponse = await client.PostAsync(new Uri(authenticationData.InstallationData.tokenUrl), dataContent);
             var accessToken = await tokenResponse.Content.ReadAsAsync<AccessToken>();
 
             var expiringAccessToken = new ExpiringAccessToken
             {
                 Token = accessToken,
-                ExpirationTimeStamp = DateTime.Now + TimeSpan.FromTicks((accessToken.expires_in - 60)*1000)
+                ExpirationTimeStamp = DateTime.Now + TimeSpan.FromTicks((accessToken.expires_in - 60) * 1000)
             };
 
-            AccessTokenStore.AddOrUpdate(oauthId, expiringAccessToken, (s, token) => token);
+            authenticationData.Token = expiringAccessToken;
+            await _cache.SetAsync(oauthId, authenticationData);
 
             return expiringAccessToken;
         }
 
-        private bool IsExpired(ExpiringAccessToken accessToken)
+        private async Task<AuthenticationData> GetAuthenticationDataFromCacheAsync(string oauthId)
         {
-            return accessToken.ExpirationTimeStamp < DateTime.Now;
+            return await _cache.GetAsync<AuthenticationData>(oauthId);
         }
 
-        private bool ValidateJWT(string jwt)
+        private bool IsExpired(ExpiringAccessToken accessToken)
+        {
+            return accessToken == null || accessToken.ExpirationTimeStamp < DateTime.Now;
+        }
+
+        private async Task<bool> ValidateJWT(string jwt)
         {
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
             var readToken = jwtSecurityTokenHandler.ReadToken(jwt);
 
-            InstallationData installationData;
-            if (!InstallationStore.TryGetValue(readToken.Issuer, out installationData))
-            {
-                return false;
-            }
+            var authenticationData = await GetAuthenticationDataFromCacheAsync(readToken.Issuer);
+            var installationData = authenticationData.InstallationData;
 
             var validationParameters = new TokenValidationParameters
             {

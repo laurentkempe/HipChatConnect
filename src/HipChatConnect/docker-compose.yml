@@ -1,18 +1,27 @@
-https-portal:
-  image: steveltn/https-portal
-  ports:
-    - '80:80'
-    - '443:443'
-  links:
-    - hipchatconnect
-  restart: always
-  environment:
-    DOMAINS: 'hipchat.laurentkempe.com -> http://hipchatconnect:5000'
-    STAGE: 'production'
-    # STAGE: local
-    # FORCE_RENEW: 'true'
+version: "2"
 
-hipchatconnect:
-  image: laurentkempe/hipchatconnect
-  environment:
-    BASE_URL: 'https://hipchat.laurentkempe.com'
+services:
+  https-portal:
+    image: steveltn/https-portal
+    ports:
+      - '80:80'
+      - '443:443'
+    links:
+      - hipchatconnect
+    restart: always
+    environment:
+      DOMAINS: 'hipchat.laurentkempe.com -> http://hipchatconnect:5000'
+      STAGE: 'production'
+      # STAGE: local
+      # FORCE_RENEW: 'true'
+
+  hipchatconnect:
+    image: laurentkempe/hipchatconnect
+    links:
+      - redis
+    environment:
+      BASE_URL: 'https://hipchat.laurentkempe.com'
+      REDIS_URL: redis:6379
+  
+  redis:
+    image: redis:alpine

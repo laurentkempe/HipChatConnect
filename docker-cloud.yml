@@ -1,0 +1,20 @@
+https-portal:
+  environment:
+    - 'DOMAINS=hipchat.laurentkempe.com -> http://hipchatconnect:5000'
+    - STAGE=production
+  image: 'steveltn/https-portal:latest'
+  links:
+    - hipchatconnect
+  ports:
+    - '80:80'
+    - '443:443'
+hipchatconnect:
+  autoredeploy: true
+  environment:
+    - 'BASE_URL=https://hipchat.laurentkempe.com'
+    - 'REDIS_URL=redis'
+  image: 'laurentkempe/hipchatconnect:latest'
+  links:
+    - redis
+redis:
+  image: redis:alpine

@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using HipChatConnect.Core.Cache;
+using HipChatConnect.Core.Cache.Impl;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 namespace HipChatConnect
 {
@@ -23,7 +27,18 @@ namespace HipChatConnect
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<AppSettings>(settings => settings.BaseUrl = Configuration["BASE_URL"]);
+            services.Configure<AppSettings>(settings =>
+            {
+                settings.BaseUrl = Configuration["BASE_URL"];
+            });
+
+            services.AddDistributedRedisCache(option =>
+            {
+                option.Configuration = Configuration["REDIS_URL"];
+                option.InstanceName = "master";
+            });
+
+            services.AddSingleton<ICache, Cache>();
 
             // Add framework services.
             services.AddCors();
@@ -36,7 +51,17 @@ namespace HipChatConnect
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions()
+            {
+                OnPrepareResponse = (context) =>
+                {
+                    var headers = context.Context.Response.GetTypedHeaders();
+                    headers.CacheControl = new CacheControlHeaderValue()
+                    {
+                        NoCache = true
+                    };
+                }
+            });
             app.UseCors(builder =>
             {
                 builder.WithOrigins("*")

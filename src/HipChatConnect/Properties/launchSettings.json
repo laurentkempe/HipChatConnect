@@ -12,7 +12,9 @@
       "commandName": "IISExpress",
       "launchBrowser": true,
       "environmentVariables": {
-        "BASE_URL": "https://aae7f482.ngrok.io",
+        "Key": "Value",
+        "BASE_URL": "https://f54150fd.ngrok.io",
+        "REDIS_URL": "localhost:6379",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
