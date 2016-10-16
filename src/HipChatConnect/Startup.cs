@@ -1,4 +1,7 @@
-﻿using HipChatConnect.Core.Cache;
+﻿using System.Linq;
+using System.Net;
+using System.Text.RegularExpressions;
+using HipChatConnect.Core.Cache;
 using HipChatConnect.Core.Cache.Impl;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -7,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
+using StackExchange.Redis;
 
 namespace HipChatConnect
 {
@@ -34,7 +38,7 @@ namespace HipChatConnect
 
             services.AddDistributedRedisCache(option =>
             {
-                option.Configuration = Configuration["REDIS_URL"];
+                option.Configuration = GetRedisIpConfiguration();
                 option.InstanceName = "master";
             });
 
@@ -70,5 +74,35 @@ namespace HipChatConnect
             });
             app.UseMvc();
         }
+
+        private string GetRedisIpConfiguration()
+        {
+            var redisUrl = Configuration["REDIS_URL"];
+
+            var config = ConfigurationOptions.Parse(redisUrl);
+
+            var addressEndpoint = config.EndPoints.First() as DnsEndPoint;
+            var port = addressEndpoint.Port;
+
+            var isIp = IsIpAddress(addressEndpoint.Host);
+            if (!isIp)
+            {
+                //Please Don't use this line in blocking context. Please remove ".Result"
+                //Just for test purposes
+                var ip = Dns.GetHostEntryAsync(addressEndpoint.Host).Result;
+
+                return $"{ip.AddressList.First()}:{port}";
+            }
+
+            return redisUrl;
+        }
+
+        bool IsIpAddress(string host)
+        {
+            string ipPattern = @"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b";
+            return Regex.IsMatch(host, ipPattern);
+        }
+
+
     }
 }
