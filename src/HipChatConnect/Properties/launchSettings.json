@@ -13,7 +13,7 @@
       "launchBrowser": true,
       "environmentVariables": {
         "Key": "Value",
-        "BASE_URL": "https://f54150fd.ngrok.io",
+        "BASE_URL": "https://2345a1bf.ngrok.io",
         "REDIS_URL": "localhost:6379",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

@@ -1,0 +1,46 @@
+﻿@using System.Threading.Tasks
+@using HipChatConnect.Models
+@model TeamCityConfigurationViewModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Nubot Configuration</title>
+    <script src="https://www.hipchat.com/atlassian-connect/all.js"></script>
+    <link rel="stylesheet" href="//aui-cdn.atlassian.com/aui-adg/5.9.5/css/aui.css" media="all">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+            integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+            crossorigin="anonymous"></script>
+</head>
+<body>
+<div>
+    <div class="hipchat-config-header">You are configuring Nubot for TeamCity.</div>
+</div>
+<div>
+    <form asp-controller="TeamCityHipChatConfigure" asp-action="Save" id="configForm" method="post">
+        <div class="field-group glance-name">
+            <input asp-action="Save" asp-for="ServerUrl" class="text medium-field" type="text" placeholder="TeamCity URL" value="@Model?.ServerUrl">
+            <input type="hidden" asp-for="jwtToken" />
+        </div>
+        <div class="buttons">
+            <input id="sendConfig" class="aui-button-primary aui-button save-glance-config submit" type="submit" value="Save">
+        </div>
+    </form>
+
+    <script language="javascript">
+
+        $(document).ready(function () {
+            HipChat.auth.withToken(function (err, token) {
+                $('input[name="jwtToken"]').val(token);
+            });
+        });
+
+    </script>
+</div>
+</body>
+</html>

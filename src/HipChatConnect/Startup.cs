@@ -1,8 +1,10 @@
-﻿using System.Linq;
-using System.Net;
+﻿using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using HipChatConnect.Core.Cache;
 using HipChatConnect.Core.Cache.Impl;
+using HipChatConnect.Services;
+using HipChatConnect.Services.Impl;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -11,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using StackExchange.Redis;
+using System.Linq;
 
 namespace HipChatConnect
 {
@@ -42,7 +45,9 @@ namespace HipChatConnect
                 option.InstanceName = "master";
             });
 
+            services.AddSingleton<HttpClient>();
             services.AddSingleton<ICache, Cache>();
+            services.AddSingleton<ITenantService, TenantService>();
 
             // Add framework services.
             services.AddCors();
@@ -102,7 +107,5 @@ namespace HipChatConnect
             string ipPattern = @"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b";
             return Regex.IsMatch(host, ipPattern);
         }
-
-
     }
 }

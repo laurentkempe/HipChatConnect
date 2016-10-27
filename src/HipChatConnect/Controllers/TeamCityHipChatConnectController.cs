@@ -1,30 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
-using HipChatConnect.Core.Cache;
+using HipChatConnect.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Nubot.Plugins.Samples.HipChatConnect.Models;
-using HipChatConnect.Models;
 
 namespace HipChatConnect.Controllers
 {
-    [Route("/hipchat")]
-    public class HipChatConnectController : Controller
+    [Route("/hipchat/teamcity")]
+    public class TeamCityHipChatConnectController : Controller
     {
-        private readonly ICache _cache;
+        private readonly ITenantService _tenantService;
         private readonly string _baseUri;
 
-        public HipChatConnectController(IOptions<AppSettings> settings, ICache cache)
+        public TeamCityHipChatConnectController(IOptions<AppSettings> settings, ITenantService tenantService)
         {
-            _cache = cache;
+            _tenantService = tenantService;
 
             _baseUri = settings.Value?.BaseUrl ?? "http://localhost:52060/";
         }
@@ -38,14 +34,25 @@ namespace HipChatConnect.Controllers
         [HttpPost("installed")]
         public async Task<HttpStatusCode> Installable([FromBody]InstallationData installation)
         {
-            var capabilitiesRoot = await RetrieveCapabilitiesDocumentAsync(installation.capabilitiesUrl);
-
-            installation.tokenUrl = capabilitiesRoot.capabilities.oauth2Provider.tokenUrl;
-            installation.apiUrl = capabilitiesRoot.capabilities.hipchatApiProvider.url;
-
-            await _cache.SetAsync(installation.oauthId, new AuthenticationData { InstallationData = installation });
+            await _tenantService.CreateTenantAsync(installation);
 
             return HttpStatusCode.OK;
+        }
+
+        [HttpGet("configure")]
+        public async Task<IActionResult> Configure([FromQuery(Name = "signed_request")] string signedRequest)
+        {
+            if (await _tenantService.ValidateTokenAsync(signedRequest))
+            {
+                var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+                var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
+
+                var authenticationData = await _tenantService.GetTenantDataAsync(readToken.Issuer);
+
+                return Redirect("/hipchat-configure");
+            }
+
+            return BadRequest();
         }
 
         [HttpGet("uninstalled")]
@@ -59,7 +66,7 @@ namespace HipChatConnect.Controllers
 
             var installationData = await httpResponse.Content.ReadAsAsync<InstallationData>();
 
-            await _cache.RemoveAsync(installationData.oauthId);
+            await _tenantService.RemoveAsync(installationData.oauthId);
 
             return await Task.FromResult(Redirect(redirectUrl));
         }
@@ -67,7 +74,7 @@ namespace HipChatConnect.Controllers
         [HttpGet("glance")]
         public async Task<string> GetGlance([FromQuery(Name = "signed_request")]string signedRequest)
         {
-            if (await ValidateJWT(signedRequest))
+            if (await _tenantService.ValidateTokenAsync(signedRequest))
             {
                 return BuildGlance();
             }
@@ -130,7 +137,7 @@ namespace HipChatConnect.Controllers
 
             using (var client = new HttpClient())
             {
-                var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+                var accessToken = await _tenantService.GetAccessTokenAsync(installationData.oauthId);
 
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
@@ -146,7 +153,7 @@ namespace HipChatConnect.Controllers
         }
 
         //[HttpGet("sendMessage")]
-        //public async Task SendMessage([FromQuery(Name = "m")] string msg)
+        //public async Task SendMessageAsync([FromQuery(Name = "m")] string msg)
         //{
         //    var installationData = InstallationStore.Values.FirstOrDefault();
         //    if (installationData == null) return;
@@ -220,12 +227,12 @@ namespace HipChatConnect.Controllers
         [HttpGet("sidebar")]
         public async Task<IActionResult> Sidebar([FromQuery(Name = "signed_request")]string signedRequest)
         {
-            if (await ValidateJWT(signedRequest))
+            if (await _tenantService.ValidateTokenAsync(signedRequest))
             {
                 var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
                 var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
 
-                var authenticationData = await GetAuthenticationDataFromCacheAsync(readToken.Issuer);
+                var authenticationData = await _tenantService.GetTenantDataAsync(readToken.Issuer);
 
                 await UpdateGlance(authenticationData.InstallationData);
 
@@ -244,7 +251,7 @@ namespace HipChatConnect.Controllers
         {
             using (var client = new HttpClient())
             {
-                var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+                var accessToken = await _tenantService.GetAccessTokenAsync(installationData.oauthId);
 
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
@@ -270,7 +277,7 @@ namespace HipChatConnect.Controllers
         {
             using (var client = new HttpClient())
             {
-                var accessToken = await GetAccessTokenAsync(installationData.oauthId);
+                var accessToken = await _tenantService.GetAccessTokenAsync(installationData.oauthId);
 
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
@@ -308,13 +315,13 @@ namespace HipChatConnect.Controllers
         {
             var capabilitiesDescriptor = new
             {
-                name = "Nubot",
-                description = "An add-on to talk to Nubot.",
-                key = "nubot",
+                name = "Nubot - TeamCity",
+                description = "A nubot add-on to for TeamCity.",
+                key = "nubot-teamcity",
                 links = new
                 {
-                    self = $"{baseUri}/hipchat/atlassian-connect.json",
-                    homepage = $"{baseUri}/hipchat/atlassian-connect.json"
+                    self = $"{baseUri}/hipchat/teamcity/atlassian-connect.json",
+                    homepage = $"{baseUri}/hipchat/teamcity/atlassian-connect.json"
                 },
                 vendor = new
                 {
@@ -333,8 +340,12 @@ namespace HipChatConnect.Controllers
                     },
                     installable = new
                     {
-                        callbackUrl = $"{baseUri}/hipchat/installed",
-                        uninstalledUrl = $"{baseUri}/hipchat/uninstalled"
+                        callbackUrl = $"{baseUri}/hipchat/teamcity/installed",
+                        uninstalledUrl = $"{baseUri}/hipchat/teamcity/uninstalled"
+                    },
+                    configurable = new
+                    {
+                        url = $"{baseUri}/hipchat/teamcity/configure"
                     },
                     glance = new[]
                     {
@@ -342,9 +353,9 @@ namespace HipChatConnect.Controllers
                         {
                             name = new
                             {
-                                value = "Hello TC"
+                                value = "TeamCity"
                             },
-                            queryUrl = $"{baseUri}/hipchat/glance",
+                            queryUrl = $"{baseUri}/hipchat/teamcity/glance",
                             key = "nubot.glance",
                             target = "nubot.sidebar",
                             icon = new Icon
@@ -369,104 +380,13 @@ namespace HipChatConnect.Controllers
                                 url2 = $"{baseUri}/nubot/TC2.png"
                             },
                             location = "hipchat.sidebar.right",
-                            url = $"{baseUri}/hipchat/sidebar"
+                            url = $"{baseUri}/hipchat/teamcity/sidebar"
                         }
                     }
                 }
             };
 
             return JsonConvert.SerializeObject(capabilitiesDescriptor);
-        }
-
-        private async Task<CapabilitiesRoot> RetrieveCapabilitiesDocumentAsync(string capabilitiesUrl)
-        {
-            var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync(new Uri(capabilitiesUrl));
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsAsync<CapabilitiesRoot>();
-        }
-
-        private async Task<AccessToken> GetAccessTokenAsync(string oauthId)
-        {
-            var authenticationData = await _cache.GetAsync<AuthenticationData>(oauthId);
-
-            if (IsExpired(authenticationData.Token))
-            {
-                var accessToken = await RefreshAccessToken(oauthId);
-                return accessToken.Token;
-            }
-
-            return await Task.FromResult(authenticationData.Token.Token);
-        }
-
-        private async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
-        {
-            var authenticationData = await GetAuthenticationDataFromCacheAsync(oauthId);
-
-            var client = new HttpClient();
-
-            var dataContent = new FormUrlEncodedContent(new[]
-            {
-                new KeyValuePair<string, string>("grant_type", "client_credentials"),
-                new KeyValuePair<string, string>("scope", "send_notification")
-            });
-
-            var credentials = Encoding.ASCII.GetBytes($"{authenticationData.InstallationData.oauthId}:{authenticationData.InstallationData.oauthSecret}");
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(credentials));
-
-            var tokenResponse = await client.PostAsync(new Uri(authenticationData.InstallationData.tokenUrl), dataContent);
-            var accessToken = await tokenResponse.Content.ReadAsAsync<AccessToken>();
-
-            var expiringAccessToken = new ExpiringAccessToken
-            {
-                Token = accessToken,
-                ExpirationTimeStamp = DateTime.Now + TimeSpan.FromTicks((accessToken.expires_in - 60) * 1000)
-            };
-
-            authenticationData.Token = expiringAccessToken;
-            await _cache.SetAsync(oauthId, authenticationData);
-
-            return expiringAccessToken;
-        }
-
-        private async Task<AuthenticationData> GetAuthenticationDataFromCacheAsync(string oauthId)
-        {
-            return await _cache.GetAsync<AuthenticationData>(oauthId);
-        }
-
-        private bool IsExpired(ExpiringAccessToken accessToken)
-        {
-            return accessToken == null || accessToken.ExpirationTimeStamp < DateTime.Now;
-        }
-
-        private async Task<bool> ValidateJWT(string jwt)
-        {
-            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-            var readToken = jwtSecurityTokenHandler.ReadToken(jwt);
-
-            var authenticationData = await GetAuthenticationDataFromCacheAsync(readToken.Issuer);
-            var installationData = authenticationData.InstallationData;
-
-            var validationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = installationData.oauthId,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(installationData.oauthSecret)),
-                ValidateAudience = false,
-                ValidateLifetime = true
-            };
-
-            try
-            {
-                SecurityToken token;
-                var validatedToken = jwtSecurityTokenHandler.ValidateToken(jwt, validationParameters, out token);
-                return validatedToken != null;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
         }
 
         private static string BuildGlance(string status = "GOOD")

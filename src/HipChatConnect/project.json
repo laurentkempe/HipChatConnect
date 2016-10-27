@@ -25,7 +25,9 @@
     },
     "Microsoft.Extensions.Caching.Redis.Core": "1.0.3",
     "Microsoft.AspNetCore.Http.Extensions": "1.0.0",
-    "Microsoft.Net.Http.Headers": "1.0.0"
+    "Microsoft.Net.Http.Headers": "1.0.0",
+    "MediatR": "2.1.0",
+    "System.Reactive.Linq": "3.0.0"
   },
 
   "tools": {
