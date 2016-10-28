@@ -12,6 +12,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
+using MediatR;
+using HipChatConnect.Controllers.Listeners.TeamCity;
 using StackExchange.Redis;
 using System.Linq;
 
@@ -48,10 +50,14 @@ namespace HipChatConnect
             services.AddSingleton<HttpClient>();
             services.AddSingleton<ICache, Cache>();
             services.AddSingleton<ITenantService, TenantService>();
+            services.AddSingleton<IHipChatRoom, HipChatRoom>();
+            services.AddSingleton<TeamCityAggregator>();
 
             // Add framework services.
             services.AddCors();
             services.AddMvc();
+
+            services.AddMediatR(typeof(Startup));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

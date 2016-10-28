@@ -14,10 +14,12 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     class HipChatRoom : IHipChatRoom
     {
         private readonly ICache _cache;
+        private readonly HttpClient _httpClient;
 
-        public HipChatRoom(ICache cache)
+        public HipChatRoom(ICache cache, HttpClient httpClient)
         {
             _cache = cache;
+            _httpClient = httpClient;
         }
 
         public async Task SendMessageAsync(string msg, InstallationData installationData)
@@ -66,7 +68,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
         private async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
         {
-            var authenticationData = await GetAuthenticationDataFromCacheAsync(oauthId);
+            var authenticationData = await GetTenantDataFromCacheAsync(oauthId);
 
             var client = new HttpClient();
 
@@ -93,14 +95,33 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
             return expiringAccessToken;
         }
-        private async Task<TenantData> GetAuthenticationDataFromCacheAsync(string oauthId)
+        private async Task<TenantData> GetTenantDataFromCacheAsync(string oauthId)
         {
             return await _cache.GetAsync<TenantData>(oauthId);
         }
 
-        public Task SendMessageAsync(string msg)
+        public async Task SendMessageAsync(string msg, string oauthId)
         {
-            return Task.FromResult(0);
+            var tenantData = await GetTenantDataFromCacheAsync(oauthId);
+            var accessToken = await GetAccessTokenAsync(oauthId);
+
+            _httpClient.DefaultRequestHeaders.Accept.Clear();
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
+            _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var messageData = new
+            {
+                color = "gray",
+                message = msg,
+                message_format = "html"
+            };
+
+            var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
+            stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+            var roomGlanceUpdateUri = new Uri($"{tenantData.InstallationData.apiUrl}room/{tenantData.InstallationData.roomId}/notification");
+            var httpResponseMessage = await _httpClient.PostAsync(roomGlanceUpdateUri, stringContent);
+            httpResponseMessage.EnsureSuccessStatusCode();
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using HipChatConnect.Controllers.Listeners.TeamCity;
 using HipChatConnect.Models;
 using HipChatConnect.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -9,10 +10,12 @@ namespace HipChatConnect.Controllers
     public class TeamCityHipChatConfigureController : Controller
     {
         private readonly ITenantService _tenantService;
+        private readonly TeamCityAggregator _aggregator;
 
-        public TeamCityHipChatConfigureController(ITenantService tenantService)
+        public TeamCityHipChatConfigureController(ITenantService tenantService, TeamCityAggregator aggregator)
         {
             _tenantService = tenantService;
+            _aggregator = aggregator;
         }
 
         // GET: /<controller>/
@@ -30,9 +33,12 @@ namespace HipChatConnect.Controllers
                 return RedirectToAction("Index");
             }
 
-            if (await _tenantService.ValidateTokenAsync(teamCityConfigurationViewModel.jwtToken))
+            if (await _tenantService.ValidateTokenAsync(teamCityConfigurationViewModel.JwtToken))
             {
-                _tenantService.SetTenantDataAsync(teamCityConfigurationViewModel.jwtToken, "ServerUrl", teamCityConfigurationViewModel.ServerUrl);
+                await _tenantService.SetTenantDataAsync(teamCityConfigurationViewModel.JwtToken, "ServerUrl", teamCityConfigurationViewModel.ServerUrl);
+                await _tenantService.SetTenantDataAsync(teamCityConfigurationViewModel.JwtToken, "BuildConfiguration", teamCityConfigurationViewModel.BuildConfiguration);
+
+                _aggregator.Configure(teamCityConfigurationViewModel);
 
                 return View("Index", teamCityConfigurationViewModel);
             }

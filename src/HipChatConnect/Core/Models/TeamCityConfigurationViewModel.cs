@@ -4,5 +4,7 @@
     {
         public string ServerUrl { get; set; }
 
-        public string jwtToken { get; set; }}
+        public string BuildConfiguration { get; set; }
+
+        public string JwtToken { get; set; }}
 }

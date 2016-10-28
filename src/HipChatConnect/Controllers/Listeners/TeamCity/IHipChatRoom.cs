@@ -2,8 +2,8 @@
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
-    internal interface IHipChatRoom
+    public interface IHipChatRoom
     {
-        Task SendMessageAsync(string msg);
+        Task SendMessageAsync(string msg, string oauthId);
     }
 }

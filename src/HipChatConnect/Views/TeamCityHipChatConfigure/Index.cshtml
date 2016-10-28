@@ -25,7 +25,8 @@
     <form asp-controller="TeamCityHipChatConfigure" asp-action="Save" id="configForm" method="post">
         <div class="field-group glance-name">
             <input asp-action="Save" asp-for="ServerUrl" class="text medium-field" type="text" placeholder="TeamCity URL" value="@Model?.ServerUrl">
-            <input type="hidden" asp-for="jwtToken" />
+            <input asp-action="Save" asp-for="BuildConfiguration" class="text medium-field" type="text" placeholder="buildExternalTypeId separated with comma" value="@Model?.BuildConfiguration">
+            <input type="hidden" asp-for="JwtToken" />
         </div>
         <div class="buttons">
             <input id="sendConfig" class="aui-button-primary aui-button save-glance-config submit" type="submit" value="Save">
@@ -36,7 +37,7 @@
 
         $(document).ready(function () {
             HipChat.auth.withToken(function (err, token) {
-                $('input[name="jwtToken"]').val(token);
+                $('input[name="JwtToken"]').val(token);
             });
         });
 

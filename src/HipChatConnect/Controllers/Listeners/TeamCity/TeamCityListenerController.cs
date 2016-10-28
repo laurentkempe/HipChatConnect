@@ -15,7 +15,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             _mediator = mediator;
         }
 
-        [HttpPost("/")]
+        [HttpPost]
         public HttpStatusCode Build([FromBody]TeamCityModel teamCityModel)
         {
             _mediator.Publish(new TeamcityBuildNotification(teamCityModel));
