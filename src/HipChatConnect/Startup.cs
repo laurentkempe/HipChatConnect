@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using HipChatConnect.Core.Cache;
@@ -89,23 +90,24 @@ namespace HipChatConnect
         private string GetRedisIpConfiguration()
         {
             var redisUrl = Configuration["REDIS_URL"];
-
-#if ASPNETCORE_ENVIRONMENT != Development
-            var config = ConfigurationOptions.Parse(redisUrl);
-
-            var addressEndpoint = config.EndPoints.First() as DnsEndPoint;
-            var port = addressEndpoint.Port;
-
-            var isIp = IsIpAddress(addressEndpoint.Host);
-            if (!isIp)
+            
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development")
             {
-                //Please Don't use this line in blocking context. Please remove ".Result"
-                //Just for test purposes
-                var ip = Dns.GetHostEntryAsync(addressEndpoint.Host).Result;
+                var config = ConfigurationOptions.Parse(redisUrl);
 
-                return $"{ip.AddressList.First()}:{port}";
+                var addressEndpoint = config.EndPoints.First() as DnsEndPoint;
+                var port = addressEndpoint.Port;
+
+                var isIp = IsIpAddress(addressEndpoint.Host);
+                if (!isIp)
+                {
+                    //Please Don't use this line in blocking context. Please remove ".Result"
+                    //Just for test purposes
+                    var ip = Dns.GetHostEntryAsync(addressEndpoint.Host).Result;
+
+                    return $"{ip.AddressList.First()}:{port}";
+                }
             }
-#endif
 
             return redisUrl;
         }
