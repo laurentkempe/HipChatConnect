@@ -11,10 +11,11 @@
     "IIS Express": {
       "commandName": "IISExpress",
       "launchBrowser": true,
+      "launchUrl": "/hipchat/teamcity/atlassian-connect.json",
       "environmentVariables": {
         "Key": "Value",
-        "BASE_URL": "https://2345a1bf.ngrok.io",
-        "REDIS_URL": "localhost:6379",
+        "BASE_URL": "https://d8ca454d.ngrok.io",
+        "REDIS_URL": "localhost:32768",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }

@@ -36,9 +36,6 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             bool notify;
             var message = new TeamCityMessageBuilder(ExpectedBuildCount).BuildMessage(buildStatuses, out notify);
 
-            //todo add color of the line https://www.hipchat.com/docs/api/method/rooms/message
-            //todo Background color for message. One of "yellow", "red", "green", "purple", "gray", or "random". (default: yellow)
-
             await Room.SendMessageAsync(message, _oauthId);
         }
 

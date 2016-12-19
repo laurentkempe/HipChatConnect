@@ -90,6 +90,7 @@ namespace HipChatConnect
         {
             var redisUrl = Configuration["REDIS_URL"];
 
+#if ASPNETCORE_ENVIRONMENT != Development
             var config = ConfigurationOptions.Parse(redisUrl);
 
             var addressEndpoint = config.EndPoints.First() as DnsEndPoint;
@@ -104,6 +105,7 @@ namespace HipChatConnect
 
                 return $"{ip.AddressList.First()}:{port}";
             }
+#endif
 
             return redisUrl;
         }

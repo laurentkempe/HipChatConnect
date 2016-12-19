@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity;
 using HipChatConnect.Models;
 using HipChatConnect.Services;
@@ -18,10 +19,27 @@ namespace HipChatConnect.Controllers
             _aggregator = aggregator;
         }
 
-        // GET: /<controller>/
-        public IActionResult Index()
+        // GET: 
+        public async Task<IActionResult> Index([FromQuery(Name = "signed_request")] string signedRequest)
         {
-            return View();
+            if (await _tenantService.ValidateTokenAsync(signedRequest))
+            {
+                var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+                var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
+
+                var authenticationData = await _tenantService.GetTenantDataAsync(readToken.Issuer);
+
+                var teamCityConfigurationViewModel = new TeamCityConfigurationViewModel();
+
+                var tenantData = await _tenantService.GetTenantDataAsync(authenticationData.InstallationData.oauthId);
+
+                teamCityConfigurationViewModel.ServerUrl = tenantData.Store.ContainsKey("ServerUrl") ? tenantData.Store["ServerUrl"] : string.Empty;
+                teamCityConfigurationViewModel.BuildConfiguration = tenantData.Store.ContainsKey("BuildConfiguration") ? tenantData.Store["BuildConfiguration"] : string.Empty;
+
+                return View(teamCityConfigurationViewModel);
+            }
+
+            return BadRequest();
         }
 
         [HttpPost("save")]

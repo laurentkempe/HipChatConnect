@@ -44,12 +44,7 @@ namespace HipChatConnect.Controllers
         {
             if (await _tenantService.ValidateTokenAsync(signedRequest))
             {
-                var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-                var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
-
-                var authenticationData = await _tenantService.GetTenantDataAsync(readToken.Issuer);
-
-                return Redirect("/hipchat-configure");
+                return Redirect($"/hipchat-configure?signed_request={signedRequest}");
             }
 
             return BadRequest();
