@@ -1,35 +1,33 @@
-﻿using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Distributed;
+﻿using System.Threading.Tasks;
 using Newtonsoft.Json;
+using StackExchange.Redis;
 
 namespace HipChatConnect.Core.Cache.Impl
 {
     internal class Cache : ICache
     {
-        private readonly IDistributedCache _cache;
+        private readonly IDatabase _cache;
 
-        public Cache(IDistributedCache cache)
+        public Cache(IDatabase cache)
         {
             _cache = cache;
         }
 
         public async Task SetAsync<T>(string key, T value)
         {
-            await _cache.SetAsync(key, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(value)));
+            await _cache.StringSetAsync(key, JsonConvert.SerializeObject(value));
         }
 
         public async Task<T> GetAsync<T>(string key)
         {
-            var bytes = await _cache.GetAsync(key);
+            var json = await _cache.StringGetAsync(key);
 
-            var json = Encoding.UTF8.GetString(bytes);
-            return await Task.Factory.StartNew(() => JsonConvert.DeserializeObject<T>(json));
+            return JsonConvert.DeserializeObject<T>(json);
         }
 
         public async Task RemoveAsync(string key)
         {
-            await _cache.RemoveAsync(key);
+            await _cache.KeyDeleteAsync(key);
         }
     }
 }

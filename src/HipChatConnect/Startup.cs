@@ -42,17 +42,20 @@ namespace HipChatConnect
                 settings.BaseUrl = Configuration["BASE_URL"];
             });
 
-            services.AddDistributedRedisCache(option =>
-            {
-                option.Configuration = GetRedisIpConfiguration();
-                option.InstanceName = "master";
-            });
-
             services.AddSingleton<HttpClient>();
             services.AddSingleton<ICache, Cache>();
             services.AddSingleton<ITenantService, TenantService>();
             services.AddSingleton<IHipChatRoom, HipChatRoom>();
             services.AddSingleton<TeamCityAggregator>();
+
+            services.AddSingleton<IConnectionMultiplexer, ConnectionMultiplexer>(
+                provider => ConnectionMultiplexer.Connect(GetRedisIpConfiguration()));
+
+            services.AddSingleton(provider =>
+            {
+                var connectionMultiplexer = provider.GetService<IConnectionMultiplexer>();
+                return connectionMultiplexer.GetDatabase();
+            });
 
             // Add framework services.
             services.AddCors();
