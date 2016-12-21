@@ -77,6 +77,44 @@ namespace HipChatConnect.Services.Impl
             return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
         }
 
+        public async Task<IEnumerable<T>> GetAllConfigurationAsync<T>()
+        {
+            var installations = await _database.ListRangeAsync("installations");
+
+            var results = new List<T>();
+
+            foreach (var installation in installations)
+            {
+                var json = await _database.StringGetAsync($"{installation}:configuration");
+
+                results.Add(JsonConvert.DeserializeObject<T>(json));
+            }
+
+            return results;
+        }
+
+        public async Task SetConfigurationAsync<T>(string jwtToken, T data)
+        {
+            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+            var readToken = jwtSecurityTokenHandler.ReadToken(jwtToken);
+
+            var oauthId = readToken.Issuer;
+
+            await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(data));
+        }
+
+        public async Task<T> GetConfigurationAsync<T>(string oauthId) where T : new()
+        {
+            var json = await _database.StringGetAsync($"{oauthId}:configuration");
+
+            if (json == RedisValue.Null)
+            {
+                return new T();
+            }
+
+            return JsonConvert.DeserializeObject<T>(json);
+        }
+
         public async Task<bool> ValidateTokenAsync(string jwt)
         {
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();

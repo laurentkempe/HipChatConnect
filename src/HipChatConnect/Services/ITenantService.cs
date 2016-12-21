@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using HipChatConnect.Core.Models;
 
@@ -19,5 +20,18 @@ namespace HipChatConnect.Services
         Task SetConfigurationAsync(string jwtToken, string key, string value);
 
         Task<InstallationData> GetInstallationDataAsync(string oauthId);
+
+        Task<IEnumerable<T>> GetAllConfigurationAsync<T>();
+
+        Task SetConfigurationAsync<T>(string jwtToken, T data);
+
+        Task<T> GetConfigurationAsync<T>(string oauthId) where T : new();
+    }
+
+    public class Configuration<T>
+    {
+        public string OAuthId { get; set; }
+
+        public T Data { get; set; }
     }
 }

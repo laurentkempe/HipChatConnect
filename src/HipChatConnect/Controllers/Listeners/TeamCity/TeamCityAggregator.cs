@@ -14,32 +14,22 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
     public class TeamCityAggregator
     {
-        private string _oauthId;
+        private readonly ITenantService _tenantService;
 
         public TeamCityAggregator(ITenantService tenantService, IHipChatRoom room)
         {
-            TenantService = tenantService;
+            _tenantService = tenantService;
             Room = room;
         }
 
         private Subject<TeamCityModel> Subject { get; set; }
 
-        private ITenantService TenantService { get; }
-
         private IHipChatRoom Room { get; }
 
         protected virtual IScheduler Scheduler => DefaultScheduler.Instance;
 
-
-        private async Task SendNotificationAsync(IList<TeamCityModel> buildStatuses)
-        {
-            bool notify;
-            var message = new TeamCityMessageBuilder(ExpectedBuildCount).BuildMessage(buildStatuses, out notify);
-
-            await Room.SendMessageAsync(message, _oauthId);
-        }
-
         public int ExpectedBuildCount { get; set; }
+
 
         public void Handle(TeamcityBuildNotification notification)
         {
@@ -47,13 +37,15 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             {
                 Subject = new Subject<TeamCityModel>();
 
+                var buildBuildTypeId = notification.TeamCityModel.build.buildTypeId; //e.g. SkyeEditor_Features_Publish
+                var rootUrl = notification.TeamCityModel.build.rootUrl;
+
+                //var matchingConfigurations = SearchConfigurationsFor(rootUrl, buildBuildTypeId);
+
                 //var maxWaitDuration = TimeSpan.FromMinutes(10.0); //todo add this on the configuration line
 
-                //var buildBuildTypeId = notification.TeamCityModel.build.buildTypeId; //e.g. SkyeEditor_Features_Publish
 
-
-
-                //var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfiguration.Split(',');
+                //var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfigurationIds.Split(',');
                 //ExpectedBuildCount = buildExternalTypeIds.Length;
 
                 //var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
@@ -61,32 +53,71 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                 //buildsPerBuildNumber.Subscribe(
                 //    grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
                 //        async list => await SendNotificationAsync(list)));
-
             }
 
             Subject.OnNext(notification.TeamCityModel);
         }
 
-        public void Configure(TeamCityConfigurationViewModel teamCityConfigurationViewModel)
+        //public void Configure(TeamCityConfigurationViewModel teamCityConfigurationViewModel)
+        //{
+        //    //todo we should not read the token from here but we should search in the Tenant Store!
+        //    var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+        //    var readToken = jwtSecurityTokenHandler.ReadToken(teamCityConfigurationViewModel.JwtToken);
+
+        //    Subject = new Subject<TeamCityModel>();
+
+        //    var maxWaitDuration = TimeSpan.FromMinutes(10.0); //todo add this on the configuration line
+
+        //    var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfigurationIds.Split(',');
+        //    ExpectedBuildCount = buildExternalTypeIds.Length;
+
+        //    var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
+
+        //    buildsPerBuildNumber.Subscribe(
+        //        grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
+        //            async list => await SendNotificationAsync(list)));
+        //}
+
+        private async Task SendNotificationAsync(IList<TeamCityModel> buildStatuses, string oauthId)
         {
-            //todo we should not read the token from here but we should search in the Tenant Store!
-            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-            var readToken = jwtSecurityTokenHandler.ReadToken(teamCityConfigurationViewModel.JwtToken);
+            bool notify;
+            var message = new TeamCityMessageBuilder(ExpectedBuildCount).BuildMessage(buildStatuses, out notify);
 
-            _oauthId = readToken.Issuer;
-
-            Subject = new Subject<TeamCityModel>();
-
-            var maxWaitDuration = TimeSpan.FromMinutes(10.0); //todo add this on the configuration line
-
-            var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfiguration.Split(',');
-            ExpectedBuildCount = buildExternalTypeIds.Length;
-
-            var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
-
-            buildsPerBuildNumber.Subscribe(
-                grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
-                    async list => await SendNotificationAsync(list)));
+            await Room.SendMessageAsync(message, oauthId);
         }
+
+        //private void SearchConfigurationsFor(string rootUrl, string buildBuildTypeId)
+        //{
+        //    var allConfigurations = _tenantService.GetAllConfigurationAsync<Configuration<ServerBuildConfiguration>>();
+
+        //    foreach (var configuration in allConfigurations)
+        //        if (configuration.RootUrl == rootUrl && configuration.) 
+        //}
+    }
+
+    public class BuildConfiguration
+    {
+        public BuildConfiguration()
+        {
+            MaxWaitDurationInMinutes = 0.0;
+            BuildConfigurationIds = string.Empty;
+        }
+
+        public double MaxWaitDurationInMinutes { get; set; }
+
+        public string BuildConfigurationIds { get; set; }
+    }
+
+    public class ServerBuildConfiguration
+    {
+        public ServerBuildConfiguration()
+        {
+            BuildConfigurations = new List<BuildConfiguration>();
+            ServerRootUrl = string.Empty;
+        }
+
+        public string ServerRootUrl { get; set; }
+
+        public List<BuildConfiguration> BuildConfigurations { get; set; }
     }
 }

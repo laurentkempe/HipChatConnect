@@ -1,5 +1,7 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Threading.Tasks;
+using HipChatConnect.Controllers.Listeners.TeamCity;
 using HipChatConnect.Core.Models;
 using HipChatConnect.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -26,10 +28,11 @@ namespace HipChatConnect.Controllers
 
                 var teamCityConfigurationViewModel = new TeamCityConfigurationViewModel();
 
-                var dictionary = await _tenantService.GetConfigurationAsync(readToken.Issuer);
+                var serverBuildConfiguration = await _tenantService.GetConfigurationAsync<ServerBuildConfiguration>(readToken.Issuer);
 
-                teamCityConfigurationViewModel.ServerUrl = dictionary.ContainsKey("ServerUrl") ? dictionary["ServerUrl"] : string.Empty;
-                teamCityConfigurationViewModel.BuildConfiguration = dictionary.ContainsKey("BuildConfiguration") ? dictionary["BuildConfiguration"] : string.Empty;
+                teamCityConfigurationViewModel.ServerUrl = serverBuildConfiguration.ServerRootUrl;
+                teamCityConfigurationViewModel.BuildConfigurationIds = serverBuildConfiguration.BuildConfigurations.Any() ? serverBuildConfiguration.BuildConfigurations.First().BuildConfigurationIds : "";
+                teamCityConfigurationViewModel.MaxWaitDurationInMinutes = serverBuildConfiguration.BuildConfigurations.Any() ? serverBuildConfiguration.BuildConfigurations.First().MaxWaitDurationInMinutes : 0.0;
 
                 return View(teamCityConfigurationViewModel);
             }
@@ -48,8 +51,17 @@ namespace HipChatConnect.Controllers
 
             if (await _tenantService.ValidateTokenAsync(teamCityConfigurationViewModel.JwtToken))
             {
-                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, "ServerUrl", teamCityConfigurationViewModel.ServerUrl);
-                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, "BuildConfiguration", teamCityConfigurationViewModel.BuildConfiguration);
+                var serverBuildConfiguration = new ServerBuildConfiguration
+                {
+                    ServerRootUrl = teamCityConfigurationViewModel.ServerUrl
+                };
+                serverBuildConfiguration.BuildConfigurations.Add(new BuildConfiguration
+                {
+                    MaxWaitDurationInMinutes = teamCityConfigurationViewModel.MaxWaitDurationInMinutes,
+                    BuildConfigurationIds = teamCityConfigurationViewModel.BuildConfigurationIds
+                });
+
+                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, serverBuildConfiguration);
 
                 return View("Index", teamCityConfigurationViewModel);
             }

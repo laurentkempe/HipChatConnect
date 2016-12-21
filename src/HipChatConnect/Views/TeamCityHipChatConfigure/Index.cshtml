@@ -25,7 +25,8 @@
     <form asp-controller="TeamCityHipChatConfigure" asp-action="Save" id="configForm" method="post">
         <div class="field-group glance-name">
             <input asp-action="Save" asp-for="ServerUrl" class="text medium-field" type="text" placeholder="TeamCity URL" value="@Model?.ServerUrl">
-            <input asp-action="Save" asp-for="BuildConfiguration" class="text medium-field" type="text" placeholder="buildExternalTypeId separated with comma" value="@Model?.BuildConfiguration">
+            <input asp-action="Save" asp-for="MaxWaitDurationInMinutes" class="text medium-field" type="text" placeholder="Max duration in minutes" value="@Model?.MaxWaitDurationInMinutes">
+            <input asp-action="Save" asp-for="BuildConfigurationIds" class="text medium-field" type="text" placeholder="buildExternalTypeId separated with comma" value="@Model?.BuildConfigurationIds">
             <input type="hidden" asp-for="JwtToken" />
         </div>
         <div class="buttons">
