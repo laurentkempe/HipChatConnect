@@ -12,6 +12,11 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="Core\Cache\**" />
+    <Content Remove="Core\Cache\**" />
+    <EmbeddedResource Remove="Core\Cache\**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.NETCore.App">
       <Version>1.0.0</Version>
     </PackageReference>

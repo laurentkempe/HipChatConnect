@@ -1,7 +1,6 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Threading.Tasks;
-using HipChatConnect.Controllers.Listeners.TeamCity;
-using HipChatConnect.Models;
+using HipChatConnect.Core.Models;
 using HipChatConnect.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,12 +10,10 @@ namespace HipChatConnect.Controllers
     public class TeamCityHipChatConfigureController : Controller
     {
         private readonly ITenantService _tenantService;
-        private readonly TeamCityAggregator _aggregator;
 
-        public TeamCityHipChatConfigureController(ITenantService tenantService, TeamCityAggregator aggregator)
+        public TeamCityHipChatConfigureController(ITenantService tenantService)
         {
             _tenantService = tenantService;
-            _aggregator = aggregator;
         }
 
         // GET: 
@@ -27,14 +24,12 @@ namespace HipChatConnect.Controllers
                 var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
                 var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
 
-                var authenticationData = await _tenantService.GetTenantDataAsync(readToken.Issuer);
-
                 var teamCityConfigurationViewModel = new TeamCityConfigurationViewModel();
 
-                var tenantData = await _tenantService.GetTenantDataAsync(authenticationData.InstallationData.oauthId);
+                var dictionary = await _tenantService.GetConfigurationAsync(readToken.Issuer);
 
-                teamCityConfigurationViewModel.ServerUrl = tenantData.Store.ContainsKey("ServerUrl") ? tenantData.Store["ServerUrl"] : string.Empty;
-                teamCityConfigurationViewModel.BuildConfiguration = tenantData.Store.ContainsKey("BuildConfiguration") ? tenantData.Store["BuildConfiguration"] : string.Empty;
+                teamCityConfigurationViewModel.ServerUrl = dictionary.ContainsKey("ServerUrl") ? dictionary["ServerUrl"] : string.Empty;
+                teamCityConfigurationViewModel.BuildConfiguration = dictionary.ContainsKey("BuildConfiguration") ? dictionary["BuildConfiguration"] : string.Empty;
 
                 return View(teamCityConfigurationViewModel);
             }
@@ -53,10 +48,8 @@ namespace HipChatConnect.Controllers
 
             if (await _tenantService.ValidateTokenAsync(teamCityConfigurationViewModel.JwtToken))
             {
-                await _tenantService.SetTenantDataAsync(teamCityConfigurationViewModel.JwtToken, "ServerUrl", teamCityConfigurationViewModel.ServerUrl);
-                await _tenantService.SetTenantDataAsync(teamCityConfigurationViewModel.JwtToken, "BuildConfiguration", teamCityConfigurationViewModel.BuildConfiguration);
-
-                _aggregator.Configure(teamCityConfigurationViewModel);
+                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, "ServerUrl", teamCityConfigurationViewModel.ServerUrl);
+                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, "BuildConfiguration", teamCityConfigurationViewModel.BuildConfiguration);
 
                 return View("Index", teamCityConfigurationViewModel);
             }

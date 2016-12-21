@@ -4,11 +4,11 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using HipChatConnect.Core.Models;
 using HipChatConnect.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using Nubot.Plugins.Samples.HipChatConnect.Models;
 
 namespace HipChatConnect.Controllers
 {
@@ -31,10 +31,10 @@ namespace HipChatConnect.Controllers
             return await Task.FromResult(GetCapabilitiesDescriptor(_baseUri));
         }
 
-        [HttpPost("installed")]
-        public async Task<HttpStatusCode> Installable([FromBody]InstallationData installation)
+        [HttpPost("install")]
+        public async Task<HttpStatusCode> Install([FromBody]InstallationData installation)
         {
-            await _tenantService.CreateTenantAsync(installation);
+            await _tenantService.CreateAsync(installation);
 
             return HttpStatusCode.OK;
         }
@@ -50,9 +50,9 @@ namespace HipChatConnect.Controllers
             return BadRequest();
         }
 
-        [HttpGet("uninstalled")]
-        public async Task<IActionResult> UnInstalled([FromQuery(Name = "redirect_url")]string redirectUrl,
-                                                     [FromQuery(Name = "installable_url")]string installableUrl)
+        [HttpGet("uninstall")]
+        public async Task<IActionResult> UnInstall([FromQuery(Name = "redirect_url")]string redirectUrl,
+                                                   [FromQuery(Name = "installable_url")]string installableUrl)
         {
             var client = new HttpClient();
 
@@ -227,14 +227,13 @@ namespace HipChatConnect.Controllers
                 var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
                 var readToken = jwtSecurityTokenHandler.ReadToken(signedRequest);
 
-                var authenticationData = await _tenantService.GetTenantDataAsync(readToken.Issuer);
+                var installationData = await _tenantService.GetInstallationDataAsync(readToken.Issuer);
 
-                await UpdateGlance(authenticationData.InstallationData);
+                await UpdateGlance(installationData);
 
-                await SendMessage($"You opened it {openCounter} time(s)", authenticationData.InstallationData);
+                await SendMessage($"You opened it {openCounter} time(s)", installationData);
 
-                await SendCardMessage($"You opened it {openCounter} time(s)", $"AWESOME {openCounter} time!",
-                        authenticationData.InstallationData);
+                await SendCardMessage($"You opened it {openCounter} time(s)", $"AWESOME {openCounter} time!", installationData);
 
                 return Redirect("/nubot/index.html");
             }
@@ -311,8 +310,8 @@ namespace HipChatConnect.Controllers
             var capabilitiesDescriptor = new
             {
                 name = "Nubot - TeamCity",
-                description = "A nubot add-on to for TeamCity.",
-                key = "nubot-teamcity",
+                description = "A nubot add-on for TeamCity.",
+                key = "nubot-teamcity-2",
                 links = new
                 {
                     self = $"{baseUri}/hipchat/teamcity/atlassian-connect.json",
@@ -335,8 +334,8 @@ namespace HipChatConnect.Controllers
                     },
                     installable = new
                     {
-                        callbackUrl = $"{baseUri}/hipchat/teamcity/installed",
-                        uninstalledUrl = $"{baseUri}/hipchat/teamcity/uninstalled"
+                        callbackUrl = $"{baseUri}/hipchat/teamcity/install",
+                        uninstalledUrl = $"{baseUri}/hipchat/teamcity/uninstall"
                     },
                     configurable = new
                     {

@@ -5,35 +5,76 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using HipChatConnect.Core.Cache;
-using HipChatConnect.Models;
+using HipChatConnect.Core.Models;
 using Microsoft.IdentityModel.Tokens;
-using Nubot.Plugins.Samples.HipChatConnect.Models;
+using Newtonsoft.Json;
+using StackExchange.Redis;
 
 namespace HipChatConnect.Services.Impl
 {
     public class TenantService : ITenantService
     {
-        private readonly ICache _cache;
+        private readonly IDatabase _database;
         private readonly HttpClient _httpClient;
 
-        public TenantService(ICache cache, HttpClient httpClient)
+        public TenantService(IDatabase database, HttpClient httpClient)
         {
-            _cache = cache;
+            _database = database;
             _httpClient = httpClient;
         }
 
-        public async Task CreateTenantAsync(InstallationData installation)
+        public async Task CreateAsync(InstallationData installationData)
         {
-            var response = await _httpClient.GetAsync(new Uri(installation.capabilitiesUrl));
+            var response = await _httpClient.GetAsync(new Uri(installationData.capabilitiesUrl));
             response.EnsureSuccessStatusCode();
 
-            var capabilitiesDocument = await response.Content.ReadAsAsync<CapabilitiesRoot>();
+            var capabilitiesDocument = await response.Content.ReadAsAsync<CapabilitiesDocument>();
 
-            installation.tokenUrl = capabilitiesDocument.capabilities.oauth2Provider.tokenUrl;
-            installation.apiUrl = capabilitiesDocument.capabilities.hipchatApiProvider.url;
+            installationData.tokenUrl = capabilitiesDocument.capabilities.oauth2Provider.tokenUrl;
+            installationData.apiUrl = capabilitiesDocument.capabilities.hipchatApiProvider.url;
 
-            await _cache.SetAsync(installation.oauthId, new TenantData { InstallationData = installation });
+            await _database.StringSetAsync($"{installationData.oauthId}:installationData", JsonConvert.SerializeObject(installationData));
+            await _database.ListLeftPushAsync("installations", installationData.oauthId);
+        }
+
+        public async Task RemoveAsync(string oauthId)
+        {
+            await _database.KeyDeleteAsync($"{oauthId}:installationData");
+            await _database.KeyDeleteAsync($"{oauthId}:token");
+            await _database.KeyDeleteAsync($"{oauthId}:configuration");
+            await _database.ListRemoveAsync("installations", oauthId);
+        }
+
+        public async Task SetConfigurationAsync(string jwtToken, string key, string value)
+        {
+            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+            var readToken = jwtSecurityTokenHandler.ReadToken(jwtToken);
+
+            var oauthId = readToken.Issuer;
+
+            var dictionary = await GetConfigurationAsync(oauthId);
+
+            string originalValue;
+            if (dictionary.TryGetValue(key, out originalValue))
+                dictionary.Remove(key);
+
+            dictionary.Add(key, value);
+
+            await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(dictionary));
+        }
+
+        public async Task<Dictionary<string, string>> GetConfigurationAsync(string oauthId)
+        {
+            var json = await _database.StringGetAsync($"{oauthId}:configuration");
+
+            var dictionary = new Dictionary<string, string>();
+            if (json == RedisValue.Null)
+            {
+                await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(dictionary));
+                return dictionary;
+            }
+
+            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
         }
 
         public async Task<bool> ValidateTokenAsync(string jwt)
@@ -41,8 +82,7 @@ namespace HipChatConnect.Services.Impl
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
             var readToken = jwtSecurityTokenHandler.ReadToken(jwt);
 
-            var authenticationData = await GetTenantDataAsync(readToken.Issuer);
-            var installationData = authenticationData.InstallationData;
+            var installationData = await GetInstallationDataAsync(readToken.Issuer);
 
             var validationParameters = new TokenValidationParameters
             {
@@ -67,50 +107,34 @@ namespace HipChatConnect.Services.Impl
 
         public async Task<AccessToken> GetAccessTokenAsync(string oauthId)
         {
-            var authenticationData = await _cache.GetAsync<TenantData>(oauthId);
+            var expiringAccessToken = await GetTokenAsync(oauthId);
 
-            if (IsExpired(authenticationData.Token))
+            if (IsExpired(expiringAccessToken))
             {
                 var accessToken = await RefreshAccessToken(oauthId);
                 return accessToken.Token;
             }
 
-            return await Task.FromResult(authenticationData.Token.Token);
+            return await Task.FromResult(expiringAccessToken.Token);
         }
 
-        public async Task<TenantData> GetTenantDataAsync(string oauthId)
+        public async Task<InstallationData> GetInstallationDataAsync(string oauthId)
         {
-            return await _cache.GetAsync<TenantData>(oauthId);
+            var json = await _database.StringGetAsync($"{oauthId}:installationData");
+
+            return JsonConvert.DeserializeObject<InstallationData>(json);
         }
 
-        public async Task RemoveAsync(string oauthId)
+        private async Task<ExpiringAccessToken> GetTokenAsync(string oauthId)
         {
-            await _cache.RemoveAsync(oauthId);
-        }
+            var json = await _database.StringGetAsync($"{oauthId}:token");
 
-        public async Task SetTenantDataAsync(string jwtToken, string key, string value)
-        {
-            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-            var readToken = jwtSecurityTokenHandler.ReadToken(jwtToken);
-
-            var oauthId = readToken.Issuer;
-
-            var tenantData = await GetTenantDataAsync(oauthId);
-
-            string originalValue;
-            if (tenantData.Store.TryGetValue(key, out originalValue))
-            {
-                tenantData.Store.Remove(key);
-            }
-
-            tenantData.Store.Add(key, value);
-
-            await _cache.SetAsync(oauthId, tenantData);
+            return JsonConvert.DeserializeObject<ExpiringAccessToken>(json);
         }
 
         private async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
         {
-            var authenticationData = await GetTenantDataAsync(oauthId);
+            var installationData = await GetInstallationDataAsync(oauthId);
 
             var dataContent = new FormUrlEncodedContent(new[]
             {
@@ -118,10 +142,14 @@ namespace HipChatConnect.Services.Impl
                 new KeyValuePair<string, string>("scope", "send_notification")
             });
 
-            var credentials = Encoding.ASCII.GetBytes($"{authenticationData.InstallationData.oauthId}:{authenticationData.InstallationData.oauthSecret}");
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(credentials));
+            var credentials =
+                Encoding.ASCII.GetBytes(
+                    $"{installationData.oauthId}:{installationData.oauthSecret}");
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(credentials));
 
-            var tokenResponse = await _httpClient.PostAsync(new Uri(authenticationData.InstallationData.tokenUrl), dataContent);
+            var tokenResponse = await _httpClient.PostAsync(new Uri(installationData.tokenUrl),
+                dataContent);
             var accessToken = await tokenResponse.Content.ReadAsAsync<AccessToken>();
 
             var expiringAccessToken = new ExpiringAccessToken
@@ -130,8 +158,7 @@ namespace HipChatConnect.Services.Impl
                 ExpirationTimeStamp = DateTime.Now + TimeSpan.FromTicks((accessToken.expires_in - 60) * 1000)
             };
 
-            authenticationData.Token = expiringAccessToken;
-            await _cache.SetAsync(oauthId, authenticationData);
+            await _database.StringSetAsync($"{oauthId}:token", JsonConvert.SerializeObject(expiringAccessToken));
 
             return expiringAccessToken;
         }

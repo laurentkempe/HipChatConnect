@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Nubot.Plugins.Samples.HipChatConnect.Models
+namespace HipChatConnect.Core.Models
 {
     public class AccessToken
     {

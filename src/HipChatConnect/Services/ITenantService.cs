@@ -1,6 +1,6 @@
-﻿using System.Threading.Tasks;
-using HipChatConnect.Models;
-using Nubot.Plugins.Samples.HipChatConnect.Models;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using HipChatConnect.Core.Models;
 
 namespace HipChatConnect.Services
 {
@@ -8,14 +8,16 @@ namespace HipChatConnect.Services
     {
         Task<bool> ValidateTokenAsync(string jwt);
 
-        Task CreateTenantAsync(InstallationData installation);
+        Task CreateAsync(InstallationData installationData);
 
         Task<AccessToken> GetAccessTokenAsync(string oauthId);
 
-        Task<TenantData> GetTenantDataAsync(string oauthId);
+        Task<Dictionary<string, string>> GetConfigurationAsync(string oauthId);
 
         Task RemoveAsync(string oauthId);
 
-        Task SetTenantDataAsync(string jwtToken, string key, string value);
+        Task SetConfigurationAsync(string jwtToken, string key, string value);
+
+        Task<InstallationData> GetInstallationDataAsync(string oauthId);
     }
 }

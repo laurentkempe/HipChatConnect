@@ -2,8 +2,6 @@
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
-using HipChatConnect.Core.Cache;
-using HipChatConnect.Core.Cache.Impl;
 using HipChatConnect.Services;
 using HipChatConnect.Services.Impl;
 using Microsoft.AspNetCore.Builder;
@@ -43,7 +41,6 @@ namespace HipChatConnect
             });
 
             services.AddSingleton<HttpClient>();
-            services.AddSingleton<ICache, Cache>();
             services.AddSingleton<ITenantService, TenantService>();
             services.AddSingleton<IHipChatRoom, HipChatRoom>();
             services.AddSingleton<TeamCityAggregator>();

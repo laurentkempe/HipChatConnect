@@ -14,7 +14,7 @@
       "launchUrl": "/hipchat/teamcity/atlassian-connect.json",
       "environmentVariables": {
         "Key": "Value",
-        "BASE_URL": "https://d8ca454d.ngrok.io",
+        "BASE_URL": "https://3e2aabfc.ngrok.io",
         "REDIS_URL": "localhost:32768",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

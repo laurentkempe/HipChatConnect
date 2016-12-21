@@ -1,7 +1,7 @@
-namespace Nubot.Plugins.Samples.HipChatConnect.Models
-{
-    using Newtonsoft.Json;
+using Newtonsoft.Json;
 
+namespace HipChatConnect.Core.Models
+{
     public class Icon
     {
         public string url { get; set; }

@@ -6,8 +6,8 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity.Models;
+using HipChatConnect.Core.Models;
 using HipChatConnect.Core.ReactiveExtensions;
-using HipChatConnect.Models;
 using HipChatConnect.Services;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
@@ -43,6 +43,27 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
         public void Handle(TeamcityBuildNotification notification)
         {
+            if (Subject == null)
+            {
+                Subject = new Subject<TeamCityModel>();
+
+                //var maxWaitDuration = TimeSpan.FromMinutes(10.0); //todo add this on the configuration line
+
+                //var buildBuildTypeId = notification.TeamCityModel.build.buildTypeId; //e.g. SkyeEditor_Features_Publish
+
+
+
+                //var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfiguration.Split(',');
+                //ExpectedBuildCount = buildExternalTypeIds.Length;
+
+                //var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
+
+                //buildsPerBuildNumber.Subscribe(
+                //    grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
+                //        async list => await SendNotificationAsync(list)));
+
+            }
+
             Subject.OnNext(notification.TeamCityModel);
         }
 

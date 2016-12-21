@@ -1,4 +1,4 @@
-﻿namespace HipChatConnect.Models
+﻿namespace HipChatConnect.Core.Models
 {
     public class TeamCityConfigurationViewModel
     {

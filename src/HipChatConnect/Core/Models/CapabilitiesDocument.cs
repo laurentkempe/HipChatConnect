@@ -1,6 +1,6 @@
-namespace Nubot.Plugins.Samples.HipChatConnect.Models
+namespace HipChatConnect.Core.Models
 {
-    public class CapabilitiesRoot
+    public class CapabilitiesDocument
     {
         public Capabilities capabilities { get; set; }
         public string description { get; set; }
