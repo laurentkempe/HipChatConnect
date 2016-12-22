@@ -3,7 +3,7 @@ using MediatR;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
-    public class TeamcityBuildNotification : INotification
+    public class TeamcityBuildNotification : IAsyncNotification
     {
         public TeamCityModel TeamCityModel { get; }
 

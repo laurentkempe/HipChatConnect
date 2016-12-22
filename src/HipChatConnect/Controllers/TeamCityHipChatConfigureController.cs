@@ -31,8 +31,8 @@ namespace HipChatConnect.Controllers
                 var serverBuildConfiguration = await _tenantService.GetConfigurationAsync<ServerBuildConfiguration>(readToken.Issuer);
 
                 teamCityConfigurationViewModel.ServerUrl = serverBuildConfiguration.ServerRootUrl;
-                teamCityConfigurationViewModel.BuildConfigurationIds = serverBuildConfiguration.BuildConfigurations.Any() ? serverBuildConfiguration.BuildConfigurations.First().BuildConfigurationIds : "";
-                teamCityConfigurationViewModel.MaxWaitDurationInMinutes = serverBuildConfiguration.BuildConfigurations.Any() ? serverBuildConfiguration.BuildConfigurations.First().MaxWaitDurationInMinutes : 0.0;
+                teamCityConfigurationViewModel.BuildConfigurationIds = serverBuildConfiguration.BuildConfiguration.BuildConfigurationIds;
+                teamCityConfigurationViewModel.MaxWaitDurationInMinutes = serverBuildConfiguration.BuildConfiguration.MaxWaitDurationInMinutes;
 
                 return View(teamCityConfigurationViewModel);
             }
@@ -53,13 +53,13 @@ namespace HipChatConnect.Controllers
             {
                 var serverBuildConfiguration = new ServerBuildConfiguration
                 {
-                    ServerRootUrl = teamCityConfigurationViewModel.ServerUrl
+                    ServerRootUrl = teamCityConfigurationViewModel.ServerUrl,
+                    BuildConfiguration = new BuildConfiguration
+                    {
+                        MaxWaitDurationInMinutes = teamCityConfigurationViewModel.MaxWaitDurationInMinutes,
+                        BuildConfigurationIds = teamCityConfigurationViewModel.BuildConfigurationIds
+                    }
                 };
-                serverBuildConfiguration.BuildConfigurations.Add(new BuildConfiguration
-                {
-                    MaxWaitDurationInMinutes = teamCityConfigurationViewModel.MaxWaitDurationInMinutes,
-                    BuildConfigurationIds = teamCityConfigurationViewModel.BuildConfigurationIds
-                });
 
                 await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, serverBuildConfiguration);
 

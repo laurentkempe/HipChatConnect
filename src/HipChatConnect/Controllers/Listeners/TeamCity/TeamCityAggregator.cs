@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity.Models;
-using HipChatConnect.Core.Models;
 using HipChatConnect.Core.ReactiveExtensions;
 using HipChatConnect.Services;
 
@@ -20,6 +18,8 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
         {
             _tenantService = tenantService;
             Room = room;
+
+            Subject = new Subject<TeamCityModel>();
         }
 
         private Subject<TeamCityModel> Subject { get; set; }
@@ -30,53 +30,30 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
         public int ExpectedBuildCount { get; set; }
 
-
-        public void Handle(TeamcityBuildNotification notification)
+        public async Task Handle(TeamcityBuildNotification notification)
         {
-            if (Subject == null)
+            var buildBuildTypeId = notification.TeamCityModel.build.buildTypeId; //e.g. SkyeEditor_Features_Publish
+            var rootUrl = notification.TeamCityModel.build.rootUrl;
+
+            var matchingConfiguration = await SearchConfigurationsFor(rootUrl, buildBuildTypeId);
+
+            if (matchingConfiguration != null)
             {
-                Subject = new Subject<TeamCityModel>();
+                var buildConfiguration = matchingConfiguration.Data.BuildConfiguration;
+                var maxWaitDuration = TimeSpan.FromMinutes(buildConfiguration.MaxWaitDurationInMinutes);
 
-                var buildBuildTypeId = notification.TeamCityModel.build.buildTypeId; //e.g. SkyeEditor_Features_Publish
-                var rootUrl = notification.TeamCityModel.build.rootUrl;
+                var buildExternalTypeIds = buildConfiguration.BuildConfigurationIds.Split(',');
+                ExpectedBuildCount = buildExternalTypeIds.Length;
 
-                //var matchingConfigurations = SearchConfigurationsFor(rootUrl, buildBuildTypeId);
+                var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
 
-                //var maxWaitDuration = TimeSpan.FromMinutes(10.0); //todo add this on the configuration line
-
-
-                //var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfigurationIds.Split(',');
-                //ExpectedBuildCount = buildExternalTypeIds.Length;
-
-                //var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
-
-                //buildsPerBuildNumber.Subscribe(
-                //    grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
-                //        async list => await SendNotificationAsync(list)));
+                buildsPerBuildNumber.Subscribe(
+                    grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
+                        async list => await SendNotificationAsync(list, matchingConfiguration.OAuthId)));
             }
 
             Subject.OnNext(notification.TeamCityModel);
         }
-
-        //public void Configure(TeamCityConfigurationViewModel teamCityConfigurationViewModel)
-        //{
-        //    //todo we should not read the token from here but we should search in the Tenant Store!
-        //    var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-        //    var readToken = jwtSecurityTokenHandler.ReadToken(teamCityConfigurationViewModel.JwtToken);
-
-        //    Subject = new Subject<TeamCityModel>();
-
-        //    var maxWaitDuration = TimeSpan.FromMinutes(10.0); //todo add this on the configuration line
-
-        //    var buildExternalTypeIds = teamCityConfigurationViewModel.BuildConfigurationIds.Split(',');
-        //    ExpectedBuildCount = buildExternalTypeIds.Length;
-
-        //    var buildsPerBuildNumber = Subject.GroupBy(model => model.build.buildNumber);
-
-        //    buildsPerBuildNumber.Subscribe(
-        //        grp => grp.BufferUntilInactive(maxWaitDuration, Scheduler, ExpectedBuildCount).Take(1).Subscribe(
-        //            async list => await SendNotificationAsync(list)));
-        //}
 
         private async Task SendNotificationAsync(IList<TeamCityModel> buildStatuses, string oauthId)
         {
@@ -86,13 +63,23 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             await Room.SendMessageAsync(message, oauthId);
         }
 
-        //private void SearchConfigurationsFor(string rootUrl, string buildBuildTypeId)
-        //{
-        //    var allConfigurations = _tenantService.GetAllConfigurationAsync<Configuration<ServerBuildConfiguration>>();
+        private async Task<IConfiguration<ServerBuildConfiguration>> SearchConfigurationsFor(string rootUrl, string buildBuildTypeId)
+        {
+            var allConfigurations = await _tenantService.GetAllConfigurationAsync<ServerBuildConfiguration>();
 
-        //    foreach (var configuration in allConfigurations)
-        //        if (configuration.RootUrl == rootUrl && configuration.) 
-        //}
+            foreach (var configuration in allConfigurations)
+            {
+                if (configuration.Data.ServerRootUrl == rootUrl)
+                {
+                    if (configuration.Data.BuildConfiguration.BuildConfigurationIds.Contains(buildBuildTypeId))
+                    {
+                        return configuration;
+                    }
+                }
+            }
+
+            return null;
+        }
     }
 
     public class BuildConfiguration
@@ -112,12 +99,12 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     {
         public ServerBuildConfiguration()
         {
-            BuildConfigurations = new List<BuildConfiguration>();
+            BuildConfiguration = new BuildConfiguration();
             ServerRootUrl = string.Empty;
         }
 
         public string ServerRootUrl { get; set; }
 
-        public List<BuildConfiguration> BuildConfigurations { get; set; }
+        public BuildConfiguration BuildConfiguration { get; set; }
     }
 }

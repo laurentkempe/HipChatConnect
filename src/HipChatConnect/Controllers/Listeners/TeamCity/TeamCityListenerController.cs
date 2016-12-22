@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity.Models;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -16,9 +17,9 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
         }
 
         [HttpPost]
-        public HttpStatusCode Build([FromBody]TeamCityModel teamCityModel)
+        public async Task<HttpStatusCode> Build([FromBody]TeamCityModel teamCityModel)
         {
-            _mediator.Publish(new TeamcityBuildNotification(teamCityModel));
+            await _mediator.PublishAsync(new TeamcityBuildNotification(teamCityModel));
 
             return HttpStatusCode.OK;
         }

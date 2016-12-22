@@ -1,8 +1,9 @@
-﻿using MediatR;
+﻿using System.Threading.Tasks;
+using MediatR;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
-    public class TeamcityBuildNotificationHandler : INotificationHandler<TeamcityBuildNotification>
+    public class TeamcityBuildNotificationHandler : IAsyncNotificationHandler<TeamcityBuildNotification>
     {
         private TeamCityAggregator Aggregator { get; }
 
@@ -11,9 +12,9 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             Aggregator = aggregator;
         }
 
-        public void Handle(TeamcityBuildNotification notification)
+        public async Task Handle(TeamcityBuildNotification notification)
         {
-            Aggregator.Handle(notification);
+            await Aggregator.Handle(notification);
         }
     }
 }

@@ -45,49 +45,17 @@ namespace HipChatConnect.Services.Impl
             await _database.ListRemoveAsync("installations", oauthId);
         }
 
-        public async Task SetConfigurationAsync(string jwtToken, string key, string value)
+        public async Task<IEnumerable<IConfiguration<T>>> GetAllConfigurationAsync<T>()
         {
-            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-            var readToken = jwtSecurityTokenHandler.ReadToken(jwtToken);
+            var oauthIds = await _database.ListRangeAsync("installations");
 
-            var oauthId = readToken.Issuer;
+            var results = new List<IConfiguration<T>>();
 
-            var dictionary = await GetConfigurationAsync(oauthId);
-
-            string originalValue;
-            if (dictionary.TryGetValue(key, out originalValue))
-                dictionary.Remove(key);
-
-            dictionary.Add(key, value);
-
-            await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(dictionary));
-        }
-
-        public async Task<Dictionary<string, string>> GetConfigurationAsync(string oauthId)
-        {
-            var json = await _database.StringGetAsync($"{oauthId}:configuration");
-
-            var dictionary = new Dictionary<string, string>();
-            if (json == RedisValue.Null)
+            foreach (var oauthId in oauthIds)
             {
-                await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(dictionary));
-                return dictionary;
-            }
+                var json = await _database.StringGetAsync($"{oauthId}:configuration");
 
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-        }
-
-        public async Task<IEnumerable<T>> GetAllConfigurationAsync<T>()
-        {
-            var installations = await _database.ListRangeAsync("installations");
-
-            var results = new List<T>();
-
-            foreach (var installation in installations)
-            {
-                var json = await _database.StringGetAsync($"{installation}:configuration");
-
-                results.Add(JsonConvert.DeserializeObject<T>(json));
+                results.Add(JsonConvert.DeserializeObject<Configuration<T>>(json));
             }
 
             return results;
@@ -100,7 +68,7 @@ namespace HipChatConnect.Services.Impl
 
             var oauthId = readToken.Issuer;
 
-            await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(data));
+            await _database.StringSetAsync($"{oauthId}:configuration", JsonConvert.SerializeObject(new Configuration<T>(oauthId, data)));
         }
 
         public async Task<T> GetConfigurationAsync<T>(string oauthId) where T : new()
@@ -115,10 +83,10 @@ namespace HipChatConnect.Services.Impl
             return JsonConvert.DeserializeObject<T>(json);
         }
 
-        public async Task<bool> ValidateTokenAsync(string jwt)
+        public async Task<bool> ValidateTokenAsync(string jwtToken)
         {
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-            var readToken = jwtSecurityTokenHandler.ReadToken(jwt);
+            var readToken = jwtSecurityTokenHandler.ReadToken(jwtToken);
 
             var installationData = await GetInstallationDataAsync(readToken.Issuer);
 
@@ -134,7 +102,7 @@ namespace HipChatConnect.Services.Impl
             try
             {
                 SecurityToken token;
-                var validatedToken = jwtSecurityTokenHandler.ValidateToken(jwt, validationParameters, out token);
+                var validatedToken = jwtSecurityTokenHandler.ValidateToken(jwtToken, validationParameters, out token);
                 return validatedToken != null;
             }
             catch (Exception)
@@ -167,7 +135,12 @@ namespace HipChatConnect.Services.Impl
         {
             var json = await _database.StringGetAsync($"{oauthId}:token");
 
-            return JsonConvert.DeserializeObject<ExpiringAccessToken>(json);
+            if (json != RedisValue.Null)
+            {
+                return JsonConvert.DeserializeObject<ExpiringAccessToken>(json);
+            }
+
+            return null;
         }
 
         private async Task<ExpiringAccessToken> RefreshAccessToken(string oauthId)
