@@ -3,16 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using HipChatConnect.Controllers.Listeners.TeamCity.Models;
+using Microsoft.Extensions.Options;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
     public class TeamCityMessageBuilder
     {
         private readonly int _expectedBuildCount;
+        private readonly IOptions<AppSettings> _settings;
 
-        public TeamCityMessageBuilder(int expectedBuildCount)
+        public TeamCityMessageBuilder(int expectedBuildCount, IOptions<AppSettings> settings)
         {
             _expectedBuildCount = expectedBuildCount;
+            _settings = settings;
         }
 
         public string BuildMessage(IList<TeamCityModel> buildStatuses, out bool notify)
@@ -24,6 +27,44 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
             return success ? BuildSuccessMessage(buildStatuses.First().build) :
                 BuildFailureMessage(buildStatuses.Select(m => m.build).ToList());
+        }
+
+        public ActivityCardData BuildActivityCard(IList<TeamCityModel> buildStatuses)
+        {
+            var success = buildStatuses.Count == _expectedBuildCount &&
+                          buildStatuses.All(buildStatus => IsSuccessfulBuild(buildStatus.build));
+
+            return success ? BuildSuccessActivityCard(buildStatuses.First().build) :
+                BuildFailureActivityCard(buildStatuses.Select(m => m.build).ToList());
+        }
+
+        private ActivityCardData BuildSuccessActivityCard(Build build)
+        {
+            return new SuccessfulTeamCityBuildActivityCardData(_settings?.Value?.BaseUrl)
+            {
+                Title = $"Successfully built {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
+                Description = $"Successfully built branch {build.branchName}",
+                Url = $"{build.buildStatusUrl}",
+                ActivityHtml = BuildActivityHtml(build, "<strong>Successfully</strong> built")
+            };
+        }
+
+        private ActivityCardData BuildFailureActivityCard(List<Build> builds)
+        {
+            var build = builds.First();
+
+            return new FailedTeamCityBuildActivityCardData(_settings?.Value?.BaseUrl)
+            {
+                Title = $"Failed to build {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
+                Description = $"Failed to built branch {build.branchName}",
+                Url = $"{build.buildStatusUrl}",
+                ActivityHtml = BuildActivityHtml(build, "<strong>Failed</strong> to build")
+            };
+        }
+
+        private static string BuildActivityHtml(Build build, string introductionMessage)
+        {
+            return introductionMessage + $@" {build.projectName} branch {build.branchName} with build number <a href='{build.buildStatusUrl}'><strong>{build.buildNumber}</strong></a>.";
         }
 
         private static bool IsSuccessfulBuild(Build b)

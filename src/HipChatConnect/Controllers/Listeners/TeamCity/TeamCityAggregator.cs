@@ -7,16 +7,19 @@ using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity.Models;
 using HipChatConnect.Core.ReactiveExtensions;
 using HipChatConnect.Services;
+using Microsoft.Extensions.Options;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
     public class TeamCityAggregator
     {
         private readonly ITenantService _tenantService;
+        private readonly IOptions<AppSettings> _settings;
 
-        public TeamCityAggregator(ITenantService tenantService, IHipChatRoom room)
+        public TeamCityAggregator(ITenantService tenantService, IHipChatRoom room, IOptions<AppSettings> settings)
         {
             _tenantService = tenantService;
+            _settings = settings;
             Room = room;
 
             Subject = new Subject<TeamCityModel>();
@@ -57,10 +60,9 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
         private async Task SendNotificationAsync(IList<TeamCityModel> buildStatuses, string oauthId)
         {
-            bool notify;
-            var message = new TeamCityMessageBuilder(ExpectedBuildCount).BuildMessage(buildStatuses, out notify);
+            var activityCardData = new TeamCityMessageBuilder(ExpectedBuildCount, _settings).BuildActivityCard(buildStatuses);
 
-            await Room.SendMessageAsync(message, oauthId);
+            await Room.SendActivityCardAsync(activityCardData, oauthId);
         }
 
         private async Task<IConfiguration<ServerBuildConfiguration>> SearchConfigurationsFor(string rootUrl, string buildBuildTypeId)

@@ -4,6 +4,8 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
     public interface IHipChatRoom
     {
-        Task SendMessageAsync(string msg, string oauthId);
+        Task SendMessageAsync(MessageData messageData, string oauthId);
+
+        Task SendActivityCardAsync(ActivityCardData activityCardData, string oauthId);
     }
 }

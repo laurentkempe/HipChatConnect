@@ -2,9 +2,7 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using HipChatConnect.Core.Models;
 using HipChatConnect.Services;
-using Newtonsoft.Json;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
@@ -19,33 +17,24 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             _httpClient = httpClient;
         }
 
-        public async Task SendMessageAsync(string msg, InstallationData installationData)
+        public async Task SendMessageAsync(MessageData messageData, string oauthId)
         {
-            using (var client = new HttpClient())
-            {
-                var accessToken = await _tenantService.GetAccessTokenAsync(installationData.oauthId);
-
-                client.DefaultRequestHeaders.Accept.Clear();
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
-                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-                var messageData = new
-                {
-                    color = "gray",
-                    message = msg,
-                    message_format = "html"
-                };
-
-                var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
-                stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-
-                var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
-                var httpResponseMessage = await client.PostAsync(roomGlanceUpdateUri, stringContent);
-                httpResponseMessage.EnsureSuccessStatusCode();
-            }
+            await Send(oauthId, messageData.Json);
         }
 
-        public async Task SendMessageAsync(string msg, string oauthId)
+        public async Task SendActivityCardAsync(ActivityCardData activityCardData, string oauthId)
+        {
+            var content = $@"
+            {{
+                ""message"" : ""{activityCardData.ActivityHtml}"",
+                ""message_format"" : ""html"",
+                ""card"" : {activityCardData.Json}
+            }}";
+
+            await Send(oauthId, content);
+        }
+
+        private async Task Send(string oauthId, string content)
         {
             var installationData = await _tenantService.GetInstallationDataAsync(oauthId);
             var accessToken = await _tenantService.GetAccessTokenAsync(oauthId);
@@ -54,18 +43,12 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.access_token);
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var messageData = new
-            {
-                color = "gray",
-                message = msg,
-                message_format = "html"
-            };
-
-            var stringContent = new StringContent(JsonConvert.SerializeObject(messageData));
+            var stringContent = new StringContent(content);
             stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
             var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
             var httpResponseMessage = await _httpClient.PostAsync(roomGlanceUpdateUri, stringContent);
+
             httpResponseMessage.EnsureSuccessStatusCode();
         }
     }
