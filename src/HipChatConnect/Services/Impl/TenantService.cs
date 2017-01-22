@@ -55,7 +55,10 @@ namespace HipChatConnect.Services.Impl
             {
                 var json = await _database.StringGetAsync($"{oauthId}:configuration");
 
-                results.Add(JsonConvert.DeserializeObject<Configuration<T>>(json));
+                if (json.HasValue)
+                {
+                    results.Add(JsonConvert.DeserializeObject<Configuration<T>>(json));
+                }
             }
 
             return results;

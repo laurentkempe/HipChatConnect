@@ -85,6 +85,9 @@ namespace HipChatConnect
                     .WithHeaders("accept", "content-type", "origin");
             });
             app.UseMvc();
+
+            var teamCityAggregator = app.ApplicationServices.GetService<TeamCityAggregator>();
+            teamCityAggregator.Initialization.GetAwaiter().GetResult();
         }
 
         private string GetRedisIpConfiguration()

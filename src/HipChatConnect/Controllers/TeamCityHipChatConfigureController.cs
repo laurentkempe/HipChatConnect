@@ -1,5 +1,4 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity;
 using HipChatConnect.Core.Models;
@@ -12,10 +11,12 @@ namespace HipChatConnect.Controllers
     public class TeamCityHipChatConfigureController : Controller
     {
         private readonly ITenantService _tenantService;
+        private readonly TeamCityAggregator _teamCityAggregator;
 
-        public TeamCityHipChatConfigureController(ITenantService tenantService)
+        public TeamCityHipChatConfigureController(ITenantService tenantService, TeamCityAggregator teamCityAggregator)
         {
             _tenantService = tenantService;
+            _teamCityAggregator = teamCityAggregator;
         }
 
         // GET: 
@@ -54,12 +55,10 @@ namespace HipChatConnect.Controllers
                 var serverBuildConfiguration = new ServerBuildConfiguration
                 {
                     ServerRootUrl = teamCityConfigurationViewModel.ServerUrl,
-                    BuildConfiguration = new BuildConfiguration
-                    {
-                        MaxWaitDurationInMinutes = teamCityConfigurationViewModel.MaxWaitDurationInMinutes,
-                        BuildConfigurationIds = teamCityConfigurationViewModel.BuildConfigurationIds
-                    }
                 };
+
+                serverBuildConfiguration.BuildConfiguration.MaxWaitDurationInMinutes = teamCityConfigurationViewModel.MaxWaitDurationInMinutes;
+                serverBuildConfiguration.BuildConfiguration.BuildConfigurationIds = teamCityConfigurationViewModel.BuildConfigurationIds;
 
                 await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, serverBuildConfiguration);
 
