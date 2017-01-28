@@ -19,7 +19,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
         [HttpPost]
         public async Task<HttpStatusCode> Build([FromBody]TeamCityModel teamCityModel)
         {
-            await _mediator.PublishAsync(new TeamcityBuildNotification(teamCityModel));
+            await _mediator.Publish(new TeamcityBuildNotification(teamCityModel));
 
             return HttpStatusCode.OK;
         }
