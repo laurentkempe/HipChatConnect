@@ -59,7 +59,7 @@ namespace HipChatConnect.Controllers
             var httpResponse = await client.GetAsync(installableUrl);
             httpResponse.EnsureSuccessStatusCode();
 
-            var installationData = await httpResponse.Content.ReadAsAsync<InstallationData>();
+            var installationData = JsonConvert.DeserializeObject<InstallationData>(await httpResponse.Content.ReadAsStringAsync());
 
             await _tenantService.RemoveAsync(installationData.oauthId);
 

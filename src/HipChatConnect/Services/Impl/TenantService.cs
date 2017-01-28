@@ -28,7 +28,7 @@ namespace HipChatConnect.Services.Impl
             var response = await _httpClient.GetAsync(new Uri(installationData.capabilitiesUrl));
             response.EnsureSuccessStatusCode();
 
-            var capabilitiesDocument = await response.Content.ReadAsAsync<CapabilitiesDocument>();
+            var capabilitiesDocument = JsonConvert.DeserializeObject<CapabilitiesDocument>(await response.Content.ReadAsStringAsync());
 
             installationData.tokenUrl = capabilitiesDocument.capabilities.oauth2Provider.tokenUrl;
             installationData.apiUrl = capabilitiesDocument.capabilities.hipchatApiProvider.url;
@@ -104,8 +104,7 @@ namespace HipChatConnect.Services.Impl
 
             try
             {
-                SecurityToken token;
-                var validatedToken = jwtSecurityTokenHandler.ValidateToken(jwtToken, validationParameters, out token);
+                var validatedToken = jwtSecurityTokenHandler.ValidateToken(jwtToken, validationParameters, out SecurityToken token);
                 return validatedToken != null;
             }
             catch (Exception)
@@ -164,7 +163,7 @@ namespace HipChatConnect.Services.Impl
 
             var tokenResponse = await _httpClient.PostAsync(new Uri(installationData.tokenUrl),
                 dataContent);
-            var accessToken = await tokenResponse.Content.ReadAsAsync<AccessToken>();
+            var accessToken = JsonConvert.DeserializeObject<AccessToken>(await tokenResponse.Content.ReadAsStringAsync());
 
             var expiringAccessToken = new ExpiringAccessToken
             {
