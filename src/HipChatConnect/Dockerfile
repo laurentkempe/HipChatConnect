@@ -1,4 +1,4 @@
-FROM microsoft/dotnet:1.1-sdk-projectjson
+FROM microsoft/dotnet:1.1.0-sdk-msbuild-rc3
 
 # Set environment variables
 ENV ASPNETCORE_URLS="http://*:5000"
