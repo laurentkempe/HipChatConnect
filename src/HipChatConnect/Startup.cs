@@ -43,6 +43,7 @@ namespace HipChatConnect
             services.AddSingleton<HttpClient>();
             services.AddSingleton<ITenantService, TenantService>();
             services.AddSingleton<IHipChatRoom, HipChatRoom>();
+            services.AddSingleton<ITeamcityBuildNotificationHandler, TeamcityBuildNotificationHandler>();
             services.AddSingleton<TeamCityAggregator>();
 
             services.AddSingleton<IConnectionMultiplexer, ConnectionMultiplexer>(
