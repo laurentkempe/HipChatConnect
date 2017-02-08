@@ -56,7 +56,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             return new FailedTeamCityBuildActivityCardData(_settings?.Value?.BaseUrl)
             {
                 Title = $"Failed to build {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
-                Description = $"Failed to built branch {build.branchName}",
+                Description = $"Failed to build branch {build.branchName}",
                 Url = $"{build.buildStatusUrl}",
                 ActivityHtml = BuildActivityHtml(build, "<strong>Failed</strong> to build")
             };
