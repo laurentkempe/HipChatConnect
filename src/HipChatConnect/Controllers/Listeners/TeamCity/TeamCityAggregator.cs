@@ -40,7 +40,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             await Task.Run(() => NotificationReceived?.Invoke(this, notification));
         }
 
-        public event EventHandler<TeamcityBuildNotification> NotificationReceived;
+        private event EventHandler<TeamcityBuildNotification> NotificationReceived;
 
         private async Task InitializeFromConfigurationsAsync()
         {
@@ -59,7 +59,12 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                         x => NotificationReceived += x,
                         x => NotificationReceived -= x)
                     .Where(@event => buildConfigurations.ContainsKey(@event.EventArgs.TeamCityModel.build.rootUrl))
-                    .Select(@event => @event.EventArgs)
+                    .Select(@event => new
+                    {
+                        @event.EventArgs.TeamCityModel,
+                        Configuration = buildConfigurations[@event.EventArgs.TeamCityModel.build.rootUrl]
+                    })
+                    .Where(x => x.Configuration.BuildSteps.Contains(x.TeamCityModel.build.buildName))
                     .Synchronize()
                     .GroupByUntil(
                         x =>
@@ -67,35 +72,41 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                             {
                                 RootUrl = x.TeamCityModel.build.rootUrl,
                                 BuildNumber = x.TeamCityModel.build.buildNumber,
-                                Configuration = buildConfigurations[x.TeamCityModel.build.rootUrl]
+                                x.Configuration
                             },
-                        x =>
+                        group =>
                         {
                             // this method is called just the first time a new group is created and returns an observable,
                             // a group is closed when that observable emits a value
 
                             // this buffer will emit a value (a list) when either there's one element, or a timeout (sliding window).
                             // When an element arrives before the timeout,  a buffer is emitted and the timeout timer restarted
-                            var timeoutBuffer = x.Buffer(TimeSpan.FromMinutes(x.Key.Configuration.TimeoutMinutes), 1,
+                            var timeoutBuffer = group.Buffer(
+                                    TimeSpan.FromMinutes(group.Key.Configuration.TimeoutMinutes), 1,
                                     Scheduler)
                                 // but then we discard the lists with one element as we use them just to restart the timeout timer
-                                .Where(y => y.Count < 1);
+                                .Where(buffer => buffer.Count < 1);
 
-                            var ownBuildSteps =
-                                x.Where(y => x.Key.Configuration.BuildSteps.Contains(y.TeamCityModel.build.buildName));
+                            var buildSteps = group.Key.Configuration.BuildSteps.Select(
+                                buildStep =>
+                                    group.Where(
+                                        element =>
+                                            element.TeamCityModel.build.buildName.Equals(buildStep,
+                                                StringComparison.OrdinalIgnoreCase)).Take(1)).Merge();
 
                             // this is observable will emit a value when the last build notification arrives for a group
-                            var maxCapacityBuffer = ownBuildSteps.Skip(x.Key.Configuration.BuildSteps.Count - 1);
+                            var allStepsCompleted =
+                                buildSteps.Skip(group.Key.Configuration.BuildSteps.Count - 1);
 
                             // this is observable will emit a value when receives a failed build step
-                            var failedBuildSteps = ownBuildSteps.Where(
+                            var failedBuildSteps = group.Where(
                                 y =>
                                     !y.TeamCityModel.build.buildResult.Equals("success",
                                         StringComparison.OrdinalIgnoreCase)).Take(1);
 
                             // then we close the group when either there's a timeout (we will have less builds than the total)
                             // or when the group is full or when there's a failed build step
-                            return timeoutBuffer.Amb<object>(maxCapacityBuffer).Amb(failedBuildSteps);
+                            return timeoutBuffer.Amb<object>(allStepsCompleted).Amb(failedBuildSteps);
                         })
                     .Subscribe(async x =>
                     {
