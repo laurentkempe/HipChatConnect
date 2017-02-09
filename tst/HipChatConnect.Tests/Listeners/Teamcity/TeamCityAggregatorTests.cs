@@ -18,23 +18,21 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_ReceivedAllSuccessfulBuildsSteps_ExpectSuccessMessagePosted()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "ndepend");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "duplication");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "publish");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
@@ -44,26 +42,26 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_OneBuildMissingAndTimeout_ExpectFailureMessagePostedJustAfterTimeout()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
+
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "ndepend");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "duplication");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication");
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
             await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            hipChatRoom.ClearReceivedCalls();
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(1).Ticks);
 
@@ -75,28 +73,28 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_OneBuildMissingArrivesBeforeTimeout_ExpectSuccessMessagePosted()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
+
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "ndepend");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "duplication");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication");
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
             await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            hipChatRoom.ClearReceivedCalls();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "publish");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
@@ -106,31 +104,31 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_2BuildStepsMissingButArrivingBeforeTimeout_ExpectSuccessMessagePosted()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
+
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "ndepend");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend");
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "duplication");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication");
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
             await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            hipChatRoom.ClearReceivedCalls();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "publish");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
@@ -140,20 +138,19 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_OneBuildStepFailed_ExpectFailureMessagePosted()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
+
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build", "failed");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", "failed");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
@@ -163,33 +160,33 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_2BuildsOneSuccessfulAndOneFailed_ExpectSuccessAndFailureMessagesPosted()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
+
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "duplication", branchName: "b1");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "duplication", branchName: "b2");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "ndepend", branchName: "b1");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "ndepend", branchName: "b2");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build", branchName: "b1");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "build", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "duplication", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "ndepend", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "build", branchName: "b2");
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "publish", "failure", "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", "failure", "b1");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch b1"),
                 Arg.Is("oAuth"));
+            hipChatRoom.ClearReceivedCalls();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "publish", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "publish", branchName: "b2");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b2"),
@@ -199,33 +196,33 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_2BuildsOneSuccessfulAndOneTimedOut_ExpectSuccessAndFailureMessagesPosted()
         {
-            var teamcityBuildNotificationHandler = Substitute.For<ITeamcityBuildNotificationHandler>();
+
             var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
                 tenantService,
-                teamcityBuildNotificationHandler,
                 hipChatRoom,
                 Substitute.For<IOptions<AppSettings>>());
 
             await teamCityAggregator.Initialization;
             teamCityAggregator.TestScheduler.Start();
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "duplication", branchName: "b1");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "duplication", branchName: "b2");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "ndepend", branchName: "b1");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "ndepend", branchName: "b2");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "build", branchName: "b1");
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "2", "build", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "duplication", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "ndepend", branchName: "b2");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "build", branchName: "b2");
 
             await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
 
-            SendTeamcityBuildNotification(teamcityBuildNotificationHandler, "1", "publish");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", branchName: "b1");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b1"),
                 Arg.Is("oAuth"));
+            hipChatRoom.ClearReceivedCalls();
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(10).Ticks);
 
@@ -234,17 +231,45 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
                 Arg.Is("oAuth"));
         }
 
-        private static void SendTeamcityBuildNotification(
-            ITeamcityBuildNotificationHandler teamcityBuildNotificationHandler,
+        [TestMethod]
+        public async Task HipChatRoomResult_OneMessageWithOtherBuildNameArrivesForSameBuild_ExpectMessageIgnoredAndSuccessMessagePosted()
+        {
+
+            var tenantService = makeTenantService(new[] { "build", "ndepend", "duplication", "publish" });
+            var hipChatRoom = Substitute.For<IHipChatRoom>();
+
+            var teamCityAggregator = new TeamCityAggregatorSUT(
+                tenantService,
+                hipChatRoom,
+                Substitute.For<IOptions<AppSettings>>());
+
+            await teamCityAggregator.Initialization;
+            teamCityAggregator.TestScheduler.Start();
+
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend", branchName: "b1");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", branchName: "b1");
+
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "other build name", branchName: "b1");
+
+            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            hipChatRoom.ClearReceivedCalls();
+
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", branchName: "b1");
+
+            await hipChatRoom.Received(1).SendActivityCardAsync(
+                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b1"),
+                Arg.Is("oAuth"));
+        }
+
+        private static async Task SendTeamcityBuildNotification(
+            TeamCityAggregator teamCityAggregator,
             string buildNumber,
             string buildName,
             string buildResult = "success",
             string branchName = "awesomeBranch",
             string rootUrl = "aRootURL")
-            => teamcityBuildNotificationHandler.NotificationReceived +=
-                Raise.Event<EventHandler<TeamcityBuildNotification>>(
-                    teamcityBuildNotificationHandler,
-                    makeTeamcityBuildNotification(buildNumber, buildName, buildResult, branchName, rootUrl));
+            => await teamCityAggregator.Handle(makeTeamcityBuildNotification(buildNumber, buildName, buildResult, branchName, rootUrl));
 
         private static TeamcityBuildNotification makeTeamcityBuildNotification(
             string buildNumber,
@@ -298,7 +323,6 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         {
             public TeamCityAggregatorSUT(
                 ITenantService tenantService,
-                ITeamcityBuildNotificationHandler buildNotificationHandler,
                 IHipChatRoom room,
                 IOptions<AppSettings> settings)
                 : base(tenantService, room, settings)
