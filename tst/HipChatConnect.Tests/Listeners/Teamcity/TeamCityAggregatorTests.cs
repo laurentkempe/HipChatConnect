@@ -301,7 +301,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
                 ITeamcityBuildNotificationHandler buildNotificationHandler,
                 IHipChatRoom room,
                 IOptions<AppSettings> settings)
-                : base(tenantService, buildNotificationHandler, room, settings)
+                : base(tenantService, room, settings)
             {
             }
 

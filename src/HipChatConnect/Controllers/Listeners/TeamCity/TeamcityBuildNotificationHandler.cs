@@ -1,15 +1,20 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using MediatR;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
-    public class TeamcityBuildNotificationHandler
-        : IAsyncNotificationHandler<TeamcityBuildNotification>, ITeamcityBuildNotificationHandler
+    public class TeamcityBuildNotificationHandler : IAsyncNotificationHandler<TeamcityBuildNotification>
     {
-        public async Task Handle(TeamcityBuildNotification notification)
-            => await Task.Run(() => NotificationReceived?.Invoke(this, notification));
+        public TeamcityBuildNotificationHandler(TeamCityAggregator aggregator)
+        {
+            Aggregator = aggregator;
+        }
 
-        public event EventHandler<TeamcityBuildNotification> NotificationReceived;
+        private TeamCityAggregator Aggregator { get; }
+
+        public async Task Handle(TeamcityBuildNotification notification)
+        {
+            await Aggregator.Handle(notification);
+        }
     }
 }

@@ -12,18 +12,15 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
     public class TeamCityAggregator
     {
-        private readonly ITeamcityBuildNotificationHandler _buildNotificationHandler;
         private readonly IOptions<AppSettings> _settings;
         private readonly SerialDisposable _subscription = new SerialDisposable();
         private readonly ITenantService _tenantService;
 
         public TeamCityAggregator(ITenantService tenantService,
-            ITeamcityBuildNotificationHandler buildNotificationHandler,
             IHipChatRoom room,
             IOptions<AppSettings> settings)
         {
             _tenantService = tenantService;
-            _buildNotificationHandler = buildNotificationHandler;
             _settings = settings;
             Room = room;
 
@@ -37,6 +34,13 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
         protected virtual IScheduler Scheduler => DefaultScheduler.Instance;
 
         public async Task ReInitializeFromConfigurationAsync() => await InitializeFromConfigurationsAsync();
+
+        public async Task Handle(TeamcityBuildNotification notification)
+        {
+            await Task.Run(() => NotificationReceived?.Invoke(this, notification));
+        }
+
+        public event EventHandler<TeamcityBuildNotification> NotificationReceived;
 
         private async Task InitializeFromConfigurationsAsync()
         {
@@ -52,10 +56,11 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
             _subscription.Disposable =
                 Observable.FromEventPattern<EventHandler<TeamcityBuildNotification>, TeamcityBuildNotification>(
-                        x => _buildNotificationHandler.NotificationReceived += x,
-                        x => _buildNotificationHandler.NotificationReceived -= x)
+                        x => NotificationReceived += x,
+                        x => NotificationReceived -= x)
                     .Where(@event => buildConfigurations.ContainsKey(@event.EventArgs.TeamCityModel.build.rootUrl))
                     .Select(@event => @event.EventArgs)
+                    .Synchronize()
                     .GroupByUntil(
                         x =>
                             new

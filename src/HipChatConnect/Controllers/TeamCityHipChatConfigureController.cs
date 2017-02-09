@@ -62,6 +62,8 @@ namespace HipChatConnect.Controllers
 
                 await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, serverBuildConfiguration);
 
+                await _teamCityAggregator.ReInitializeFromConfigurationAsync();
+
                 return View("Index", teamCityConfigurationViewModel);
             }
 

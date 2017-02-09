@@ -43,7 +43,6 @@ namespace HipChatConnect
             services.AddSingleton<HttpClient>();
             services.AddSingleton<ITenantService, TenantService>();
             services.AddSingleton<IHipChatRoom, HipChatRoom>();
-            services.AddSingleton<ITeamcityBuildNotificationHandler, TeamcityBuildNotificationHandler>();
             services.AddSingleton<TeamCityAggregator>();
 
             services.AddSingleton<IConnectionMultiplexer, ConnectionMultiplexer>(
@@ -68,12 +67,12 @@ namespace HipChatConnect
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
-            app.UseStaticFiles(new StaticFileOptions()
+            app.UseStaticFiles(new StaticFileOptions
             {
-                OnPrepareResponse = (context) =>
+                OnPrepareResponse = context =>
                 {
                     var headers = context.Context.Response.GetTypedHeaders();
-                    headers.CacheControl = new CacheControlHeaderValue()
+                    headers.CacheControl = new CacheControlHeaderValue
                     {
                         NoCache = true
                     };
