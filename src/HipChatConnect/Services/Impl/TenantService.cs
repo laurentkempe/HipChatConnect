@@ -83,7 +83,9 @@ namespace HipChatConnect.Services.Impl
                 return new T();
             }
 
-            return JsonConvert.DeserializeObject<T>(json);
+            var configuration = JsonConvert.DeserializeObject<Configuration<T>>(json);
+
+            return configuration.Data;
         }
 
         public async Task<bool> ValidateTokenAsync(string jwtToken)
