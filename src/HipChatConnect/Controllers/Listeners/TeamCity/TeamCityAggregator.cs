@@ -98,15 +98,9 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                             var allStepsCompleted =
                                 buildSteps.Skip(group.Key.Configuration.BuildSteps.Count - 1);
 
-                            // this is observable will emit a value when receives a failed build step
-                            var failedBuildSteps = group.Where(
-                                y =>
-                                    !y.TeamCityModel.build.buildResult.Equals("success",
-                                        StringComparison.OrdinalIgnoreCase)).Take(1);
-
                             // then we close the group when either there's a timeout (we will have less builds than the total)
-                            // or when the group is full or when there's a failed build step
-                            return timeoutBuffer.Amb<object>(allStepsCompleted).Amb(failedBuildSteps);
+                            // or when the group is full
+                            return timeoutBuffer.Amb<object>(allStepsCompleted);
                         })
                     .Subscribe(async x =>
                     {

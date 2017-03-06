@@ -40,6 +40,30 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         }
 
         [TestMethod]
+        public async Task HipChatRoomResult_ReceivedAllfAILEDBuildsSteps_ExpectFailureMessagePosted()
+        {
+            var tenantService = makeTenantService(new[] { "build", "ndepend", "duplication", "publish" });
+            var hipChatRoom = Substitute.For<IHipChatRoom>();
+
+            var teamCityAggregator = new TeamCityAggregatorSUT(
+                tenantService,
+                hipChatRoom,
+                Substitute.For<IOptions<AppSettings>>());
+
+            await teamCityAggregator.Initialization;
+            teamCityAggregator.TestScheduler.Start();
+
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", "failed");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend", "failed");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication", "failed");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", "failed");
+
+            await hipChatRoom.Received(1).SendActivityCardAsync(
+                Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
+                Arg.Is("oAuth"));
+        }
+
+        [TestMethod]
         public async Task HipChatRoomResult_OneBuildMissingAndTimeout_ExpectFailureMessagePostedJustAfterTimeout()
         {
 
@@ -132,28 +156,6 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
-                Arg.Is("oAuth"));
-        }
-
-        [TestMethod]
-        public async Task HipChatRoomResult_OneBuildStepFailed_ExpectFailureMessagePosted()
-        {
-
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
-            var hipChatRoom = Substitute.For<IHipChatRoom>();
-
-            var teamCityAggregator = new TeamCityAggregatorSUT(
-                tenantService,
-                hipChatRoom,
-                Substitute.For<IOptions<AppSettings>>());
-
-            await teamCityAggregator.Initialization;
-            teamCityAggregator.TestScheduler.Start();
-
-            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", "failed");
-
-            await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
                 Arg.Is("oAuth"));
         }
 
