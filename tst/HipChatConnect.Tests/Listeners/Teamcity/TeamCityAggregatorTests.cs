@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reactive.Concurrency;
 using System.Threading.Tasks;
 using HipChatConnect.Controllers.Listeners.TeamCity;
@@ -18,7 +19,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_ReceivedAllSuccessfulBuildsSteps_ExpectSuccessMessagePosted()
         {
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -42,7 +43,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         [TestMethod]
         public async Task HipChatRoomResult_ReceivedAllfAILEDBuildsSteps_ExpectFailureMessagePosted()
         {
-            var tenantService = makeTenantService(new[] { "build", "ndepend", "duplication", "publish" });
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -67,7 +68,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         public async Task HipChatRoomResult_OneBuildMissingAndTimeout_ExpectFailureMessagePostedJustAfterTimeout()
         {
 
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -98,7 +99,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         public async Task HipChatRoomResult_OneBuildMissingArrivesBeforeTimeout_ExpectSuccessMessagePosted()
         {
 
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -129,7 +130,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         public async Task HipChatRoomResult_2BuildStepsMissingButArrivingBeforeTimeout_ExpectSuccessMessagePosted()
         {
 
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -163,7 +164,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         public async Task HipChatRoomResult_2BuildsOneSuccessfulAndOneFailed_ExpectSuccessAndFailureMessagesPosted()
         {
 
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -199,7 +200,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         public async Task HipChatRoomResult_2BuildsOneSuccessfulAndOneTimedOut_ExpectSuccessAndFailureMessagesPosted()
         {
 
-            var tenantService = makeTenantService(new[] {"build", "ndepend", "duplication", "publish"});
+            var tenantService = makeTenantService(new[] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -237,7 +238,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         public async Task HipChatRoomResult_OneMessageWithOtherBuildNameArrivesForSameBuild_ExpectMessageIgnoredAndSuccessMessagePosted()
         {
 
-            var tenantService = makeTenantService(new[] { "build", "ndepend", "duplication", "publish" });
+            var tenantService = makeTenantService(new [] { new[] { "build", "ndepend", "duplication", "publish" } });
             var hipChatRoom = Substitute.For<IHipChatRoom>();
 
             var teamCityAggregator = new TeamCityAggregatorSUT(
@@ -261,6 +262,34 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
                 Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b1"),
+                Arg.Is("oAuth"));
+        }
+
+        [TestMethod]
+        public async Task HipChatRoomResult2_ReceivedAllSuccessfulBuildsSteps_ExpectSuccessMessagePosted()
+        {
+            var tenantService = makeTenantService(new [] { new[] { "build", "ndepend", "duplication", "publish" }, new[] { "performance" } });
+            var hipChatRoom = Substitute.For<IHipChatRoom>();
+
+            var teamCityAggregator = new TeamCityAggregatorSUT(
+                tenantService,
+                hipChatRoom,
+                Substitute.For<IOptions<AppSettings>>());
+
+            await teamCityAggregator.Initialization;
+            teamCityAggregator.TestScheduler.Start();
+
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "build");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "ndepend");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "duplication");
+            await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
+            await SendTeamcityBuildNotification(teamCityAggregator, "2", "performance", "success", "anotherBranch");
+
+            await hipChatRoom.Received(1).SendActivityCardAsync(
+                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
+                Arg.Is("oAuth"));
+            await hipChatRoom.Received(1).SendActivityCardAsync(
+                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch anotherBranch"),
                 Arg.Is("oAuth"));
         }
 
@@ -297,26 +326,30 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
         }
 
         private static ITenantService makeTenantService(
-            string[] buildConfigurationIds,
+            string[][] buildConfigurationIds,
             string rootUrl = "aRootURL",
             int timeoutMinutes = 10)
         {
             if (buildConfigurationIds.Length == 0)
                 throw new ArgumentException("Value cannot be an empty collection.", nameof(buildConfigurationIds));
 
-            var serverBuildConfiguration = new ServerBuildConfiguration
+            var buildConfigurations = buildConfigurationIds.Select(cfg =>
+            new Configuration<ServerBuildConfiguration>("oAuth", 
+            new ServerBuildConfiguration
             {
                 ServerRootUrl = rootUrl,
-                BuildConfiguration =
+                BuildConfigurations =
                 {
-                    MaxWaitDurationInMinutes = timeoutMinutes,
-                    BuildConfigurationIds = string.Join(",", buildConfigurationIds)
+                    new BuildConfiguration()
+                    {
+                        MaxWaitDurationInMinutes = timeoutMinutes,
+                        BuildConfigurationIds = string.Join(",", cfg)
+                    }
                 }
-            };
+            }));
 
             var tenantService = Substitute.For<ITenantService>();
-            tenantService.GetAllConfigurationAsync<ServerBuildConfiguration>()
-                .Returns(new[] {new Configuration<ServerBuildConfiguration>("oAuth", serverBuildConfiguration)});
+            tenantService.GetAllConfigurationAsync<ServerBuildConfiguration>().Returns(buildConfigurations);
 
             return tenantService;
         }

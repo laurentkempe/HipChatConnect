@@ -7,11 +7,11 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
         public ServerBuildConfiguration()
         {
             ServerRootUrl = string.Empty;
-            BuildConfiguration = new BuildConfiguration();
+            BuildConfigurations = new List<BuildConfiguration>();
         }
 
         public string ServerRootUrl { get; set; }
 
-        public BuildConfiguration BuildConfiguration { get; }
+        public List<BuildConfiguration> BuildConfigurations { get; }
     }
 }

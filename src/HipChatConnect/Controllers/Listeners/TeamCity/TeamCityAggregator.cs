@@ -47,24 +47,32 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             var rawConfigurations = await _tenantService.GetAllConfigurationAsync<ServerBuildConfiguration>();
             if (rawConfigurations == null) return;
 
-            var buildConfigurations = rawConfigurations.Select(c => new BuildConfiguration(
-                    c.Data.ServerRootUrl,
-                    c.OAuthId,
-                    c.Data.BuildConfiguration.BuildConfigurationIds.Split(',').ToList(),
-                    (int) c.Data.BuildConfiguration.MaxWaitDurationInMinutes))
-                .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+            var buildConfigurations = new List<BuildConfiguration>();
+
+            foreach (var rawConfiguration in rawConfigurations)
+            {
+                foreach (var buildConfiguration in rawConfiguration.Data.BuildConfigurations)
+                {
+                    buildConfigurations.Add(new BuildConfiguration(rawConfiguration.Data.ServerRootUrl,
+                        rawConfiguration.OAuthId,
+                        buildConfiguration.BuildConfigurationIds.Split(',').ToList(),
+                        (int) buildConfiguration.MaxWaitDurationInMinutes));
+                }
+            }
 
             _subscription.Disposable =
                 Observable.FromEventPattern<EventHandler<TeamcityBuildNotification>, TeamcityBuildNotification>(
                         x => NotificationReceived += x,
                         x => NotificationReceived -= x)
-                    .Where(@event => buildConfigurations.ContainsKey(@event.EventArgs.TeamCityModel.build.rootUrl))
+                    .Where(@event => buildConfigurations.Where(c => c.Name == @event.EventArgs.TeamCityModel.build.rootUrl)
+                                                        .Any(cfg => cfg.BuildSteps.Contains(@event.EventArgs.TeamCityModel.build.buildName)))
                     .Select(@event => new
-                    {
+                    {   
                         @event.EventArgs.TeamCityModel,
-                        Configuration = buildConfigurations[@event.EventArgs.TeamCityModel.build.rootUrl]
+                        Configurations = buildConfigurations.Where(c => c.Name == @event.EventArgs.TeamCityModel.build.rootUrl)
+                                                           .Where(cfg => cfg.BuildSteps.Contains(@event.EventArgs.TeamCityModel.build.buildName))
                     })
-                    .Where(x => x.Configuration.BuildSteps.Contains(x.TeamCityModel.build.buildName))
+                    .Where(x => x.Configurations.Any(b => b.BuildSteps.Contains(x.TeamCityModel.build.buildName)))
                     .Synchronize()
                     .GroupByUntil(
                         x =>

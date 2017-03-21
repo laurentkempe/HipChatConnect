@@ -10,8 +10,8 @@ namespace HipChatConnect.Controllers
     [Route("/hipchat-configure", Name = "Configure")]
     public class TeamCityHipChatConfigureController : Controller
     {
-        private readonly ITenantService _tenantService;
         private readonly TeamCityAggregator _teamCityAggregator;
+        private readonly ITenantService _tenantService;
 
         public TeamCityHipChatConfigureController(ITenantService tenantService, TeamCityAggregator teamCityAggregator)
         {
@@ -29,11 +29,17 @@ namespace HipChatConnect.Controllers
 
                 var teamCityConfigurationViewModel = new TeamCityConfigurationViewModel();
 
-                var serverBuildConfiguration = await _tenantService.GetConfigurationAsync<ServerBuildConfiguration>(readToken.Issuer);
+                var serverBuildConfiguration =
+                    await _tenantService.GetConfigurationAsync<ServerBuildConfiguration>(readToken.Issuer);
 
                 teamCityConfigurationViewModel.ServerUrl = serverBuildConfiguration.ServerRootUrl;
-                teamCityConfigurationViewModel.BuildConfigurationIds = serverBuildConfiguration.BuildConfiguration.BuildConfigurationIds;
-                teamCityConfigurationViewModel.MaxWaitDurationInMinutes = serverBuildConfiguration.BuildConfiguration.MaxWaitDurationInMinutes;
+
+                foreach (var buildConfiguration in serverBuildConfiguration.BuildConfigurations)
+                    teamCityConfigurationViewModel.BuildConfigurations.Add(new BuildConfigurationViewModel
+                    {
+                        BuildConfigurationIds = buildConfiguration.BuildConfigurationIds,
+                        MaxWaitDurationInMinutes = buildConfiguration.MaxWaitDurationInMinutes
+                    });
 
                 return View(teamCityConfigurationViewModel);
             }
@@ -46,21 +52,24 @@ namespace HipChatConnect.Controllers
         public async Task<IActionResult> Save(TeamCityConfigurationViewModel teamCityConfigurationViewModel)
         {
             if (!ModelState.IsValid)
-            {
                 return RedirectToAction("Index");
-            }
 
             if (await _tenantService.ValidateTokenAsync(teamCityConfigurationViewModel.JwtToken))
             {
                 var serverBuildConfiguration = new ServerBuildConfiguration
                 {
-                    ServerRootUrl = teamCityConfigurationViewModel.ServerUrl,
+                    ServerRootUrl = teamCityConfigurationViewModel.ServerUrl
                 };
 
-                serverBuildConfiguration.BuildConfiguration.MaxWaitDurationInMinutes = teamCityConfigurationViewModel.MaxWaitDurationInMinutes;
-                serverBuildConfiguration.BuildConfiguration.BuildConfigurationIds = teamCityConfigurationViewModel.BuildConfigurationIds;
+                foreach (var buildConfigurationViewModel in teamCityConfigurationViewModel.BuildConfigurations)
+                    serverBuildConfiguration.BuildConfigurations.Add(new BuildConfiguration
+                    {
+                        BuildConfigurationIds = buildConfigurationViewModel.BuildConfigurationIds,
+                        MaxWaitDurationInMinutes = buildConfigurationViewModel.MaxWaitDurationInMinutes
+                    });
 
-                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken, serverBuildConfiguration);
+                await _tenantService.SetConfigurationAsync(teamCityConfigurationViewModel.JwtToken,
+                    serverBuildConfiguration);
 
                 await _teamCityAggregator.ReInitializeFromConfigurationAsync();
 
