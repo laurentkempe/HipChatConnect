@@ -6,6 +6,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using HipChatConnect.Services;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
@@ -13,15 +14,17 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     public class TeamCityAggregator
     {
         private readonly IOptions<AppSettings> _settings;
+        private readonly ILogger<TeamCityAggregator> _logger;
         private readonly SerialDisposable _subscription = new SerialDisposable();
         private readonly ITenantService _tenantService;
 
         public TeamCityAggregator(ITenantService tenantService,
             IHipChatRoom room,
-            IOptions<AppSettings> settings)
+            IOptions<AppSettings> settings, ILogger<TeamCityAggregator> logger)
         {
             _tenantService = tenantService;
             _settings = settings;
+            _logger = logger;
             Room = room;
 
             Initialization = InitializeFromConfigurationsAsync();
@@ -54,6 +57,11 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                     (int) c.Data.BuildConfiguration.MaxWaitDurationInMinutes))
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
+            foreach (var buildConfiguration in buildConfigurations)
+            {
+                _logger.LogInformation($"Configuration initialized for ${buildConfiguration.Key} with buildSteps [${string.Join(",", buildConfiguration.Value.BuildSteps) }] [${buildConfiguration.Value.TimeoutMinutes}], [${buildConfiguration.Value.Name}]");
+            }
+
             _subscription.Disposable =
                 Observable.FromEventPattern<EventHandler<TeamcityBuildNotification>, TeamcityBuildNotification>(
                         x => NotificationReceived += x,
@@ -76,6 +84,8 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                             },
                         group =>
                         {
+                            _logger.LogInformation($"Group created for buildNumber [{group.Key.BuildNumber}], [{group.Key.RootUrl}]");
+
                             // this method is called just the first time a new group is created and returns an observable,
                             // a group is closed when that observable emits a value
 
@@ -108,6 +118,9 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                         var group = await x.ToList().SingleAsync();
                         var teamCityModels = group.Select(g => g.TeamCityModel).ToList();
                         var conf = x.Key.Configuration;
+
+                        _logger.LogInformation(
+                            $"Received all build status for ${x.Key.BuildNumber}, sending message");
 
                         var activityCardData =
                             new TeamCityMessageBuilder(conf.BuildSteps.Count, _settings).BuildActivityCard(

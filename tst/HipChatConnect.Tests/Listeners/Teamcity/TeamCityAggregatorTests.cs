@@ -5,6 +5,7 @@ using HipChatConnect.Controllers.Listeners.TeamCity;
 using HipChatConnect.Controllers.Listeners.TeamCity.Models;
 using HipChatConnect.Services;
 using HipChatConnect.Services.Impl;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Reactive.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -326,8 +327,9 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
             public TeamCityAggregatorSUT(
                 ITenantService tenantService,
                 IHipChatRoom room,
-                IOptions<AppSettings> settings)
-                : base(tenantService, room, settings)
+                IOptions<AppSettings> settings,
+                ILogger<TeamCityAggregator> logger = null)
+                : base(tenantService, room, settings, logger)
             {
             }
 
