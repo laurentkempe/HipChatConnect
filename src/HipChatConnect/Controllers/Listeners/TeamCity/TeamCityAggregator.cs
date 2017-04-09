@@ -59,7 +59,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
             foreach (var buildConfiguration in buildConfigurations)
             {
-                _logger.LogInformation($"Configuration initialized for ${buildConfiguration.Key} with buildSteps [${string.Join(",", buildConfiguration.Value.BuildSteps) }] [${buildConfiguration.Value.TimeoutMinutes}], [${buildConfiguration.Value.Name}]");
+                _logger.LogInformation($"Configuration initialized for {buildConfiguration.Key} with buildSteps [{string.Join(",", buildConfiguration.Value.BuildSteps) }] [{buildConfiguration.Value.TimeoutMinutes}], [{buildConfiguration.Value.Name}]");
             }
 
             _subscription.Disposable =

@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using HipChatConnect.Services;
+using Microsoft.Extensions.Logging;
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
@@ -10,11 +11,13 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     {
         private readonly ITenantService _tenantService;
         private readonly HttpClient _httpClient;
+        private readonly ILogger<HipChatRoom> _logger;
 
-        public HipChatRoom(ITenantService tenantService, HttpClient httpClient)
+        public HipChatRoom(ITenantService tenantService, HttpClient httpClient, ILogger<HipChatRoom> logger)
         {
             _tenantService = tenantService;
             _httpClient = httpClient;
+            _logger = logger;
         }
 
         public async Task SendMessageAsync(MessageData messageData, string oauthId)
@@ -47,7 +50,12 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
             var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
+
+            _logger.LogInformation($"Sending [{stringContent}] to {roomGlanceUpdateUri}");
+
             var httpResponseMessage = await _httpClient.PostAsync(roomGlanceUpdateUri, stringContent);
+
+            _logger.LogInformation($"PostAsync result {httpResponseMessage.StatusCode}, {httpResponseMessage.ReasonPhrase}");
 
             httpResponseMessage.EnsureSuccessStatusCode();
         }
