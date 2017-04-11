@@ -22,7 +22,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
         [HttpPost]
         public async Task<HttpStatusCode> Build([FromBody]TeamCityModel teamCityModel)
         {
-            _logger.LogInformation($"Received status for {teamCityModel.build.buildName} from ${teamCityModel.build.rootUrl} with status ${teamCityModel.build.buildStatus}");
+            _logger.LogInformation($"Received status for [{teamCityModel.build.buildName}] from [{teamCityModel.build.rootUrl}] with result [{teamCityModel.build.buildResult}]");
 
             await _mediator.Publish(new TeamcityBuildNotification(teamCityModel));
 
