@@ -81,7 +81,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     {
         public SuccessfulTeamsActivityCardData()
         {
-            Color = "#00FF00";
+            Color = "00FF00";
         }
     }
 
@@ -89,7 +89,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     {
         public FailedTeamsActivityCardData()
         {
-            Color = "#FF0000";
+            Color = "FF0000";
         }
     }
 }
