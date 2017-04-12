@@ -6,6 +6,8 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
     {
         Task SendMessageAsync(MessageData messageData, string oauthId);
 
-        Task SendActivityCardAsync(ActivityCardData activityCardData, string oauthId);
+        Task SendActivityCardAsync(HipChatActivityCardData hipChatActivityCardData, string oauthId);
+
+        Task SendTeamsActivityCardAsync(TeamsActivityCardData teamsActivityCardData);
     }
 }

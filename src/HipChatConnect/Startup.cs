@@ -38,6 +38,7 @@ namespace HipChatConnect
             services.Configure<AppSettings>(settings =>
             {
                 settings.BaseUrl = Configuration["BASE_URL"];
+                settings.TeamsNubotTeamCityIncomingWebhookUrl = Configuration["TEAMSNUBOTTEAMCITYINCOMINGWEBHOOK_URL"];
             });
 
             services.AddSingleton<HttpClient>();

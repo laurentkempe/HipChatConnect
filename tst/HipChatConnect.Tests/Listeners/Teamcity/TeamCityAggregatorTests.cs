@@ -36,7 +36,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
                 Arg.Is("oAuth"));
         }
 
@@ -60,7 +60,7 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", "failed");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
                 Arg.Is("oAuth"));
         }
 
@@ -85,13 +85,13 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
-            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<HipChatActivityCardData>(), Arg.Is("oAuth"));
             hipChatRoom.ClearReceivedCalls();
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(1).Ticks);
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Failed to build branch awesomeBranch"),
                 Arg.Is("oAuth"));
         }
 
@@ -116,13 +116,13 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
-            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<HipChatActivityCardData>(), Arg.Is("oAuth"));
             hipChatRoom.ClearReceivedCalls();
 
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
                 Arg.Is("oAuth"));
         }
 
@@ -150,13 +150,13 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(9).Ticks);
 
-            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<HipChatActivityCardData>(), Arg.Is("oAuth"));
             hipChatRoom.ClearReceivedCalls();
 
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Successfully built branch awesomeBranch"),
                 Arg.Is("oAuth"));
         }
 
@@ -185,14 +185,14 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", "failure", "b1");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch b1"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Failed to build branch b1"),
                 Arg.Is("oAuth"));
             hipChatRoom.ClearReceivedCalls();
 
             await SendTeamcityBuildNotification(teamCityAggregator, "2", "publish", branchName: "b2");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b2"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Successfully built branch b2"),
                 Arg.Is("oAuth"));
         }
 
@@ -218,19 +218,19 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "build", branchName: "b1");
             await SendTeamcityBuildNotification(teamCityAggregator, "2", "build", branchName: "b2");
 
-            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<HipChatActivityCardData>(), Arg.Is("oAuth"));
 
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", branchName: "b1");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b1"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Successfully built branch b1"),
                 Arg.Is("oAuth"));
             hipChatRoom.ClearReceivedCalls();
 
             teamCityAggregator.TestScheduler.AdvanceBy(TimeSpan.FromMinutes(10).Ticks);
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Failed to build branch b2"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Failed to build branch b2"),
                 Arg.Is("oAuth"));
         }
 
@@ -255,13 +255,13 @@ namespace HipChatConnect.Tests.Listeners.Teamcity
 
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "other build name", branchName: "b1");
 
-            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<ActivityCardData>(), Arg.Is("oAuth"));
+            await hipChatRoom.Received(0).SendActivityCardAsync(Arg.Any<HipChatActivityCardData>(), Arg.Is("oAuth"));
             hipChatRoom.ClearReceivedCalls();
 
             await SendTeamcityBuildNotification(teamCityAggregator, "1", "publish", branchName: "b1");
 
             await hipChatRoom.Received(1).SendActivityCardAsync(
-                Arg.Is<ActivityCardData>(x => x.Description == "Successfully built branch b1"),
+                Arg.Is<HipChatActivityCardData>(x => x.Description == "Successfully built branch b1"),
                 Arg.Is("oAuth"));
         }
 

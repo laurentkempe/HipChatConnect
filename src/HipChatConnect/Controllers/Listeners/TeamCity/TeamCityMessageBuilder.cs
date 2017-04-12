@@ -29,7 +29,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                 BuildFailureMessage(buildStatuses.Select(m => m.build).ToList());
         }
 
-        public ActivityCardData BuildActivityCard(IList<TeamCityModel> buildStatuses)
+        public HipChatActivityCardData BuildActivityCard(IList<TeamCityModel> buildStatuses)
         {
             var success = buildStatuses.Count == _expectedBuildCount &&
                           buildStatuses.All(buildStatus => IsSuccessfulBuild(buildStatus.build));
@@ -38,9 +38,9 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                 BuildFailureActivityCard(buildStatuses.Select(m => m.build).ToList());
         }
 
-        private ActivityCardData BuildSuccessActivityCard(Build build)
+        private HipChatActivityCardData BuildSuccessActivityCard(Build build)
         {
-            return new SuccessfulTeamCityBuildActivityCardData(_settings?.Value?.BaseUrl)
+            return new SuccessfulTeamCityHipChatBuildActivityCardData(_settings?.Value?.BaseUrl)
             {
                 Title = $"Successfully built {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
                 Description = $"Successfully built branch {build.branchName}",
@@ -49,11 +49,11 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             };
         }
 
-        private ActivityCardData BuildFailureActivityCard(List<Build> builds)
+        private HipChatActivityCardData BuildFailureActivityCard(List<Build> builds)
         {
             var build = builds.First();
 
-            return new FailedTeamCityBuildActivityCardData(_settings?.Value?.BaseUrl)
+            return new FailedTeamCityHipChatBuildActivityCardData(_settings?.Value?.BaseUrl)
             {
                 Title = $"Failed to build {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
                 Description = $"Failed to build branch {build.branchName}",
@@ -102,6 +102,38 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                     failedBuilds.Select(fb => string.Format(@"<a href=""{0}""><strong>{1}</strong></a>", fb.buildStatusUrl, fb.buildName))));
 
             return stringBuilder.ToString();
+        }
+
+        public TeamsActivityCardData BuildTeamsActivityCard(List<TeamCityModel> buildStatuses)
+        {
+            var success = buildStatuses.Count == _expectedBuildCount &&
+                          buildStatuses.All(buildStatus => IsSuccessfulBuild(buildStatus.build));
+
+            return success
+                ? BuildSuccessTeamsActivityCard(buildStatuses)
+                : BuildFailureTeamsActivityCard(buildStatuses);
+        }
+
+        private TeamsActivityCardData BuildFailureTeamsActivityCard(List<TeamCityModel> buildStatuses)
+        {
+            var build = buildStatuses.First().build;
+
+            return new FailedTeamsActivityCardData
+            {
+                Title = $"Failed to build branch {build.branchName}",
+                Text = $@"Failed to build {build.projectName} branch {build.branchName} with [build number {build.buildNumber}]({build.buildStatusUrl})."
+            };
+        }
+
+        private TeamsActivityCardData BuildSuccessTeamsActivityCard(List<TeamCityModel> buildStatuses)
+        {
+            var build = buildStatuses.First().build;
+
+            return new SuccessfulTeamsActivityCardData
+            {
+                Title = $"Successfully built branch {build.branchName}",
+                Text = $@"Successfully built {build.projectName} branch {build.branchName} with [build number {build.buildNumber}]({build.buildStatusUrl})."
+            };
         }
     }
 }

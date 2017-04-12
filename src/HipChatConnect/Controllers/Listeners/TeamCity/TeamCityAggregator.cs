@@ -5,6 +5,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using HipChatConnect.Controllers.Listeners.TeamCity.Models;
 using HipChatConnect.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -122,12 +123,28 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                         _logger.LogInformation(
                             $"Received all build status for ${x.Key.BuildNumber}, sending message");
 
-                        var activityCardData =
-                            new TeamCityMessageBuilder(conf.BuildSteps.Count, _settings).BuildActivityCard(
-                                teamCityModels);
 
-                        await Room.SendActivityCardAsync(activityCardData, conf.OAuthId);
+                        await SendHipChatInformationAsync(conf, teamCityModels);
+                        await SendTeamsInformationAsync(conf, teamCityModels);
                     });
+        }
+
+        private async Task SendTeamsInformationAsync(BuildConfiguration conf, List<TeamCityModel> teamCityModels)
+        {
+            var activityCardData =
+                new TeamCityMessageBuilder(conf.BuildSteps.Count, _settings).BuildTeamsActivityCard(
+                    teamCityModels);
+
+            await Room.SendTeamsActivityCardAsync(activityCardData);
+        }
+
+        private async Task SendHipChatInformationAsync(BuildConfiguration conf, List<TeamCityModel> teamCityModels)
+        {
+            var activityCardData =
+                new TeamCityMessageBuilder(conf.BuildSteps.Count, _settings).BuildActivityCard(
+                    teamCityModels);
+
+            await Room.SendActivityCardAsync(activityCardData, conf.OAuthId);
         }
 
         private class BuildConfiguration

@@ -2,9 +2,9 @@
 
 namespace HipChatConnect.Controllers.Listeners.TeamCity
 {
-    public class ActivityCardData
+    public class HipChatActivityCardData
     {
-        public ActivityCardData()
+        public HipChatActivityCardData()
         {
             Id = Guid.NewGuid().ToString();
         }
@@ -39,27 +39,57 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
     }
 
-    public class TeamCityActivityCardData : ActivityCardData
+    public class TeamCityHipChatActivityCardData : HipChatActivityCardData
     {
-        public TeamCityActivityCardData(string baseUrl)
+        public TeamCityHipChatActivityCardData(string baseUrl)
         {
             IconUrl = $"{baseUrl}/nubot/TC_activity.png";
         }
     }
 
-    public class SuccessfulTeamCityBuildActivityCardData : TeamCityActivityCardData
+    public class SuccessfulTeamCityHipChatBuildActivityCardData : TeamCityHipChatActivityCardData
     {
-        public SuccessfulTeamCityBuildActivityCardData(string baseUrl) : base(baseUrl)
+        public SuccessfulTeamCityHipChatBuildActivityCardData(string baseUrl) : base(baseUrl)
         {
             ActivityIconUrl = $"{baseUrl}/nubot/TC_activity_success.png";
         }
     }
 
-    public class FailedTeamCityBuildActivityCardData : TeamCityActivityCardData
+    public class FailedTeamCityHipChatBuildActivityCardData : TeamCityHipChatActivityCardData
     {
-        public FailedTeamCityBuildActivityCardData(string baseUrl) : base(baseUrl)
+        public FailedTeamCityHipChatBuildActivityCardData(string baseUrl) : base(baseUrl)
         {
             ActivityIconUrl = $"{baseUrl}/nubot/TC_activity_failure.png";
+        }
+    }
+
+    public class TeamsActivityCardData
+    {
+        public string Title { get; set; }
+        public string Text { get; set; }
+        public string Color { get; set; }
+
+        public string Json => $@"
+            {{
+                ""title"": ""{Title}"",
+                ""text"": ""{Text}"",
+                ""themeColor"": ""{Color}""
+            }}";
+    }
+
+    public class SuccessfulTeamsActivityCardData : TeamsActivityCardData
+    {
+        public SuccessfulTeamsActivityCardData()
+        {
+            Color = "#00FF00";
+        }
+    }
+
+    public class FailedTeamsActivityCardData : TeamsActivityCardData
+    {
+        public FailedTeamsActivityCardData()
+        {
+            Color = "#FF0000";
         }
     }
 }
