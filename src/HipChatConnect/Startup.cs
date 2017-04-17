@@ -15,6 +15,7 @@ using MediatR;
 using HipChatConnect.Controllers.Listeners.TeamCity;
 using StackExchange.Redis;
 using System.Linq;
+using Microsoft.Bot.Connector;
 
 namespace HipChatConnect
 {
@@ -57,7 +58,10 @@ namespace HipChatConnect
 
             // Add framework services.
             services.AddCors();
-            services.AddMvc();
+            services.AddMvc(options =>
+            {
+                options.Filters.Add(typeof(TrustServiceUrlAttribute));
+            });
 
             services.AddMediatR(typeof(Startup));
         }
@@ -85,6 +89,11 @@ namespace HipChatConnect
                     .WithMethods("GET")
                     .WithHeaders("accept", "content-type", "origin");
             });
+
+            app.UseBotAuthentication(new StaticCredentialProvider(
+                Configuration.GetSection(MicrosoftAppCredentials.MicrosoftAppIdKey)?.Value,
+                Configuration.GetSection(MicrosoftAppCredentials.MicrosoftAppPasswordKey)?.Value));
+
             app.UseMvc();
 
             var teamCityAggregator = app.ApplicationServices.GetService<TeamCityAggregator>();
