@@ -92,4 +92,11 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
             Color = "FF0000";
         }
     }
+
+    public class GithubPushActivityCardData : TeamsActivityCardData
+    {
+        public GithubPushActivityCardData()
+        {
+        }
+    }
 }

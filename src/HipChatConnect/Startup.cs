@@ -15,6 +15,7 @@ using MediatR;
 using HipChatConnect.Controllers.Listeners.TeamCity;
 using StackExchange.Redis;
 using System.Linq;
+using HipChatConnect.Controllers.Listeners.Github;
 using Microsoft.Bot.Connector;
 
 namespace HipChatConnect
@@ -48,6 +49,7 @@ namespace HipChatConnect
             services.AddSingleton<ITenantService, TenantService>();
             services.AddSingleton<IHipChatRoom, HipChatRoom>();
             services.AddSingleton<TeamCityAggregator>();
+            services.AddSingleton<GithubAggregator>();
 
             services.AddSingleton<IConnectionMultiplexer, ConnectionMultiplexer>(
                 provider => ConnectionMultiplexer.Connect(GetRedisIpConfiguration()));
