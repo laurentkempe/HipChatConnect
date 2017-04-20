@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HipChatConnect.Controllers.Listeners.Github
 {
+    [Route("/github/listener")]
     public class GithubListenerController : Controller
     {
         private readonly IMediator _mediator;
