@@ -39,16 +39,20 @@ namespace HipChatConnect.Controllers.Listeners.Github
         private static (string Title, string Text) BuildMessage(GithubModel model)
         {
             var branch = model.Ref.Replace("refs/heads/", "");
-            var authorNames = model.Commits.Select(c => c.Author.Name).Distinct();
+            var authorNames = model.Commits.Select(c => c.Author.Name).Distinct().ToList();
 
 
-            var title = $"**{string.Join(", ", authorNames)}** committed on [{branch}]({model.Repository.HtmlUrl + "/tree/" + branch})";
+            var title = $"{string.Join(", ", authorNames)} committed on {branch}";
 
             var stringBuilder = new StringBuilder();
 
+            stringBuilder.AppendLine(
+                $"**{string.Join(", ", authorNames)}** committed on [{branch}]({model.Repository.HtmlUrl + "/tree/" + branch})");
+
             foreach (var commit in model.Commits)
             {
-                stringBuilder.Append($@"* {commit.Message} [{commit.Id.Substring(0, 11)}]({commit.Url})");
+                stringBuilder.AppendLine($@"* {commit.Message} [{commit.Id.Substring(0, 11)}]({commit.Url})");
+                stringBuilder.AppendLine();
             }
 
             return (title, stringBuilder.ToString());
