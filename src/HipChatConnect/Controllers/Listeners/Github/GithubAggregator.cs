@@ -48,8 +48,9 @@ namespace HipChatConnect.Controllers.Listeners.Github
 
             stringBuilder.AppendLine(
                 $"**{string.Join(", ", authorNames)}** committed on [{branch}]({model.Repository.HtmlUrl + "/tree/" + branch})");
+            stringBuilder.AppendLine();
 
-            foreach (var commit in model.Commits)
+            foreach (var commit in model.Commits.Reverse())
             {
                 stringBuilder.AppendLine($@"* {commit.Message} [{commit.Id.Substring(0, 11)}]({commit.Url})");
                 stringBuilder.AppendLine();
