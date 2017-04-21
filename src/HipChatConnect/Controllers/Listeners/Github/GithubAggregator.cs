@@ -18,12 +18,13 @@ namespace HipChatConnect.Controllers.Listeners.Github
         public async Task Handle(GithubPushNotification notification)
         {
             await SendTeamsInformationAsync(notification);
-
         }
 
         private async Task SendTeamsInformationAsync(GithubPushNotification notification)
         {
             var githubModel = notification.GithubModel;
+
+            if (githubModel.Deleted) return;
 
             (var title, var text) = BuildMessage(githubModel);
 
