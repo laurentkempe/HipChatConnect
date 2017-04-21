@@ -42,23 +42,13 @@ namespace HipChatConnect.Controllers.Listeners.Github
             var authorNames = model.Commits.Select(c => c.Author.Name).Distinct();
 
 
-            var title = string.Format(
-                    "<b>{0}</b> committed on <a href='{1}'>{2}</a><br/>",
-                    string.Join(", ", authorNames),
-                    model.Repository.HtmlUrl + "/tree/" + branch,
-                    branch
-                );
+            var title = $"**{string.Join(", ", authorNames)}** committed on [{branch}]({model.Repository.HtmlUrl + "/tree/" + branch})";
 
             var stringBuilder = new StringBuilder();
 
             foreach (var commit in model.Commits)
             {
-                stringBuilder
-                    .AppendFormat(
-                        @"- {0} (<a href='{1}'>{2}</a>)<br/>",
-                        commit.Message,
-                        commit.Url,
-                        commit.Id.Substring(0, 11));
+                stringBuilder.Append($@"* {commit.Message} [{commit.Id.Substring(0, 11)}]({commit.Url})");
             }
 
             return (title, stringBuilder.ToString());

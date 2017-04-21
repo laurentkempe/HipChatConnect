@@ -45,7 +45,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                 Title = $"Successfully built {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
                 Description = $"Successfully built branch {build.branchName}",
                 Url = $"{build.buildStatusUrl}",
-                ActivityHtml = BuildActivityHtml(build, "<strong>Successfully</strong> built")
+                ActivityHtml = BuildActivityHtml(build, "**Successfully** built")
             };
         }
 
@@ -58,7 +58,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                 Title = $"Failed to build {build.projectName} on agent {build.agentName} triggered by {build.triggeredBy}",
                 Description = $"Failed to build branch {build.branchName}",
                 Url = $"{build.buildStatusUrl}",
-                ActivityHtml = BuildActivityHtml(build, "<strong>Failed</strong> to build")
+                ActivityHtml = BuildActivityHtml(build, "**Failed** to build")
             };
         }
 
