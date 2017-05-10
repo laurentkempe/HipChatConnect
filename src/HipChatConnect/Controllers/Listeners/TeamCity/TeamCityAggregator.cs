@@ -121,11 +121,11 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
                         var conf = x.Key.Configuration;
 
                         _logger.LogInformation(
-                            $"Received all build status for ${x.Key.BuildNumber}, sending message");
+                            $"Received all build status for {x.Key.BuildNumber}, sending message");
 
 
-                        await SendHipChatInformationAsync(conf, teamCityModels);
                         await SendTeamsInformationAsync(conf, teamCityModels);
+                        await SendHipChatInformationAsync(conf, teamCityModels);
                     });
         }
 

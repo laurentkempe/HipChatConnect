@@ -55,7 +55,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
             var teamsWebHookUrl = new Uri(url);
 
-            _logger.LogInformation($"Sending [{stringContent}] to Teams.");
+            _logger.LogInformation($"Sending [{teamsActivityCardData.Json}] to Teams.");
 
             var httpResponseMessage = await _httpClient.PostAsync(teamsWebHookUrl, stringContent);
 
@@ -80,7 +80,7 @@ namespace HipChatConnect.Controllers.Listeners.TeamCity
 
             var roomGlanceUpdateUri = new Uri($"{installationData.apiUrl}room/{installationData.roomId}/notification");
 
-            _logger.LogInformation($"Sending [{stringContent}] to {roomGlanceUpdateUri}");
+            _logger.LogInformation($"Sending [{content}] to {roomGlanceUpdateUri}");
 
             var httpResponseMessage = await _httpClient.PostAsync(roomGlanceUpdateUri, stringContent);
 
